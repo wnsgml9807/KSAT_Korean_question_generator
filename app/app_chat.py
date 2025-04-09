@@ -379,8 +379,14 @@ if prompt:
                     if final_messages_to_save:
                         save_message("assistant", final_messages_to_save)
 
-                # run_agent_stream 호출 (try 블록 내부)
-                asyncio.run(run_agent_stream())
+                # run_agent_stream 호출 (Streamlit 이벤트 루프 사용)
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:  # 'RuntimeError: There is no current event loop...'
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+
+                loop.run_until_complete(run_agent_stream())
 
             except Exception as e:
                 logger.error(f"AI 응답 생성/처리 중 외부 오류 발생: {e}", exc_info=True)
