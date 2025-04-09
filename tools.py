@@ -1,5 +1,4 @@
 # math_server.py
-from mcp.server.fastmcp import FastMCP
 import chromadb
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 from typing import Literal, Dict, List, Any, Union
@@ -14,9 +13,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logging.getLogger('sse_starlette').setLevel(logging.INFO)
 
-logger.info("도구 서버 초기화 중...")
-mcp = FastMCP("all_tools", host="0.0.0.0", port=8000)
-
 # --- 임시 파일 경로 정의 ---
 TEMP_PASSAGE_DIR = os.path.join("DB", "temp")
 TEMP_PASSAGE_FILE = os.path.join(TEMP_PASSAGE_DIR, "latest_passage.json")
@@ -25,7 +21,6 @@ TEMP_PASSAGE_FILE = os.path.join(TEMP_PASSAGE_DIR, "latest_passage.json")
 os.makedirs(TEMP_PASSAGE_DIR, exist_ok=True)
 
 
-@mcp.tool()
 async def prompt_for_suneung_writing() :
     """수능 지문 작성 시 공통 참고사항"""
     prompt = """
@@ -40,7 +35,6 @@ async def prompt_for_suneung_writing() :
     """
     return prompt
 
-@mcp.tool()
 async def structure_for_suneung_writing() :
     """수능 지문에서 자주 사용되는 글의 구조"""
     prompt = """
@@ -52,7 +46,6 @@ async def structure_for_suneung_writing() :
     """
     return prompt
 
-@mcp.tool()
 async def prompt_for_technology_subject() :
     """수능 기술 지문 작성 시 참고사항"""
     prompt = """
@@ -65,7 +58,6 @@ async def prompt_for_technology_subject() :
     """
     return prompt
 
-@mcp.tool()
 async def prompt_for_humanities_subject() :
     """수능 인문 지문 작성 시 참고사항"""
     prompt = """
@@ -78,7 +70,6 @@ async def prompt_for_humanities_subject() :
     """
     return prompt
 
-@mcp.tool()
 async def generate_passage(passage: str) -> str :
     """지문 작성 시 반드시 이 함수를 통해 지문 출력해.
     첫 줄에는 지문 제목을 붙여줘.
@@ -92,7 +83,6 @@ async def generate_passage(passage: str) -> str :
     
     return formatted_passage_output
 
-@mcp.tool()
 async def generate_question(questions: str) -> str :
     """문제를 작성 시 반드시 이 함수를 통해 출력해. 표준 마크다운 형식을 사용해줘. 지문은 포함하지 말고 문제만 출력해.
     1.  질문(1. 윗글에 대한~)은 **볼드체**로 표시해줘.
@@ -123,8 +113,7 @@ async def generate_question(questions: str) -> str :
     # <보기> 테이블 변환 후처리 로직 없음 (AI 생성 의존)
 
     return formatted_questions
-
-@mcp.tool()
+    
 async def retrieve_data(query: str, type: Literal["question", "answer"]) -> Dict[str, Any]:
     """수능 문제와 해설 기출 DB에서 검색"""
     client = chromadb.PersistentClient(path="Agent/DB/kice")
@@ -159,6 +148,3 @@ content: {doc}"""
 index: {doc_index}
 content: {doc}"""
     return result
-
-if __name__ == "__main__":
-    mcp.run(transport="sse")
