@@ -289,100 +289,102 @@ if prompt:
         render_message(prompt, is_new=False)
 
     with st.chat_message("assistant"):
-        try:
-            # 스트리밍 및 렌더링 상태 관리 변수
-            ai_placeholder_dict = {'current': None}
-            ai_text_dict = {'current': ""}
-            full_event_stream = [] # 최종 저장용
+        # --- 스피너 추가 ---
+        with st.spinner("작성 중..."):
+            try:
+                # 스트리밍 및 렌더링 상태 관리 변수
+                ai_placeholder_dict = {'current': None}
+                ai_text_dict = {'current': ""}
+                full_event_stream = [] # 최종 저장용
 
-            # 비동기 스트림 처리 및 렌더링
-            async def run_agent_stream():
-                last_passage_text_in_stream = None # 현재 스트림 내 마지막 지문 텍스트 저장용
+                # 비동기 스트림 처리 및 렌더링
+                async def run_agent_stream():
+                    last_passage_text_in_stream = None # 현재 스트림 내 마지막 지문 텍스트 저장용
 
-                async for msg in agent_server.generate_agent_response(agent_executor, prompt, st.session_state.session_id):
-                    msg_type = msg.get("type")
-                    tool_name = msg.get("tool_name")
+                    async for msg in agent_server.generate_agent_response(agent_executor, prompt, st.session_state.session_id):
+                        msg_type = msg.get("type")
+                        tool_name = msg.get("tool_name")
 
-                    # generate_passage 결과 텍스트 저장 (스트림 변수 및 세션 변수 모두)
-                    if msg_type == "tool_end" and tool_name == "generate_passage":
-                        passage_text = msg.get("text", "")
-                        last_passage_text_in_stream = passage_text # 스트림 변수 업데이트
-                        st.session_state.last_passage_text_in_session = passage_text # 세션 변수 업데이트
-                        logger.info("Stored passage text from current stream and updated session state.")
+                        # generate_passage 결과 텍스트 저장 (스트림 변수 및 세션 변수 모두)
+                        if msg_type == "tool_end" and tool_name == "generate_passage":
+                            passage_text = msg.get("text", "")
+                            last_passage_text_in_stream = passage_text # 스트림 변수 업데이트
+                            st.session_state.last_passage_text_in_session = passage_text # 세션 변수 업데이트
+                            logger.info("Stored passage text from current stream and updated session state.")
 
-                    # generate_question 처리 시 연관 지문 찾기 (우선순위 적용)
-                    elif msg_type == "tool_end" and tool_name == "generate_question":
-                        passage_to_associate = None
-                        source = "none" # 지문 출처 추적용
+                        # generate_question 처리 시 연관 지문 찾기 (우선순위 적용)
+                        elif msg_type == "tool_end" and tool_name == "generate_question":
+                            passage_to_associate = None
+                            source = "none" # 지문 출처 추적용
 
-                        # 1순위: 현재 스트림에서 생성된 지문 사용
-                        if last_passage_text_in_stream:
-                            passage_to_associate = last_passage_text_in_stream
-                            source = "stream"
-                        # 2순위: 세션에서 가장 마지막으로 생성된 지문 사용
-                        elif st.session_state.last_passage_text_in_session:
-                            passage_to_associate = st.session_state.last_passage_text_in_session
-                            source = "session"
+                            # 1순위: 현재 스트림에서 생성된 지문 사용
+                            if last_passage_text_in_stream:
+                                passage_to_associate = last_passage_text_in_stream
+                                source = "stream"
+                            # 2순위: 세션에서 가장 마지막으로 생성된 지문 사용
+                            elif st.session_state.last_passage_text_in_session:
+                                passage_to_associate = st.session_state.last_passage_text_in_session
+                                source = "session"
 
-                        # 연관 지문 텍스트 파싱
-                        title = "연관 지문 없음"
-                        passage = "연관된 지문 정보를 찾을 수 없습니다."
-                        if passage_to_associate:
-                            try:
-                                lines = passage_to_associate.strip().split("\n", 1)
-                                title = lines[0] if lines else "제목 없음"
-                                passage = lines[1].strip() if len(lines) > 1 else ""
-                                logger.info(f"Associated passage '{title[:20]}...' (from {source}) with question.")
-                            except Exception as e:
-                                logger.error(f"Error parsing associated passage text (from {source}): {e}")
-                                title = "지문 파싱 오류"
-                                passage = f"연관된 지문 텍스트(출처: {source}) 파싱 중 오류 발생:\n{passage_to_associate}"
-                        else:
-                            logger.warning("generate_question: Could not find any preceding passage in stream or session.")
+                            # 연관 지문 텍스트 파싱
+                            title = "연관 지문 없음"
+                            passage = "연관된 지문 정보를 찾을 수 없습니다."
+                            if passage_to_associate:
+                                try:
+                                    lines = passage_to_associate.strip().split("\n", 1)
+                                    title = lines[0] if lines else "제목 없음"
+                                    passage = lines[1].strip() if len(lines) > 1 else ""
+                                    logger.info(f"Associated passage '{title[:20]}...' (from {source}) with question.")
+                                except Exception as e:
+                                    logger.error(f"Error parsing associated passage text (from {source}): {e}")
+                                    title = "지문 파싱 오류"
+                                    passage = f"연관된 지문 텍스트(출처: {source}) 파싱 중 오류 발생:\n{passage_to_associate}"
+                            else:
+                                logger.warning("generate_question: Could not find any preceding passage in stream or session.")
 
-                        # 메시지에 title, passage, form_id 추가
-                        msg["title"] = title
-                        msg["passage"] = passage
-                        msg["form_id"] = f"form_{uuid.uuid4()}"
-                        logger.info(f"Added title/passage/form_id to generate_question message (form_id: {msg['form_id']}, source: {source}).")
+                            # 메시지에 title, passage, form_id 추가
+                            msg["title"] = title
+                            msg["passage"] = passage
+                            msg["form_id"] = f"form_{uuid.uuid4()}"
+                            logger.info(f"Added title/passage/form_id to generate_question message (form_id: {msg['form_id']}, source: {source}).")
 
-                    # 메시지 렌더링 (is_new=True)
-                    render_message(msg, ai_placeholder_dict, ai_text_dict, is_new=True)
+                        # 메시지 렌더링 (is_new=True)
+                        render_message(msg, ai_placeholder_dict, ai_text_dict, is_new=True)
 
-                    # 최종 저장용 스트림에 추가
-                    full_event_stream.append(msg)
+                        # 최종 저장용 스트림에 추가
+                        full_event_stream.append(msg)
 
-                    await asyncio.sleep(0.005)
-                # --- 여기까지 async for 루프 ---
+                        await asyncio.sleep(0.005)
+                    # --- 여기까지 async for 루프 ---
 
-                # 마지막 AI 텍스트 완료 처리 (루프 밖)
-                if ai_placeholder_dict['current'] is not None:
-                     ai_placeholder_dict['current'].markdown(ai_text_dict['current'])
+                    # 마지막 AI 텍스트 완료 처리 (루프 밖)
+                    if ai_placeholder_dict['current'] is not None:
+                         ai_placeholder_dict['current'].markdown(ai_text_dict['current'])
 
-                # 최종 메시지 저장 로직 (루프 밖)
-                final_messages_to_save = []
-                temp_ai_text = ""
-                for event in full_event_stream:
-                    event_type = event.get("type")
-                    if event_type == "ai_token":
-                        temp_ai_text += event.get("text", "")
-                    elif event_type != "tool_start":
-                        if temp_ai_text:
-                            final_messages_to_save.append({"type": "ai", "text": temp_ai_text})
-                            temp_ai_text = ""
-                        final_messages_to_save.append(event)
-                if temp_ai_text:
-                    final_messages_to_save.append({"type": "ai", "text": temp_ai_text})
+                    # 최종 메시지 저장 로직 (루프 밖)
+                    final_messages_to_save = []
+                    temp_ai_text = ""
+                    for event in full_event_stream:
+                        event_type = event.get("type")
+                        if event_type == "ai_token":
+                            temp_ai_text += event.get("text", "")
+                        elif event_type != "tool_start":
+                            if temp_ai_text:
+                                final_messages_to_save.append({"type": "ai", "text": temp_ai_text})
+                                temp_ai_text = ""
+                            final_messages_to_save.append(event)
+                    if temp_ai_text:
+                        final_messages_to_save.append({"type": "ai", "text": temp_ai_text})
 
-                if final_messages_to_save:
-                    save_message("assistant", final_messages_to_save)
+                    if final_messages_to_save:
+                        save_message("assistant", final_messages_to_save)
 
-            # run_agent_stream 호출 (try 블록 내부)
-            asyncio.run(run_agent_stream())
+                # run_agent_stream 호출 (try 블록 내부)
+                asyncio.run(run_agent_stream())
 
-        except Exception as e:
-            logger.error(f"AI 응답 생성/처리 중 외부 오류 발생: {e}", exc_info=True)
-            st.error(f"요청 처리 중 심각한 오류 발생: {str(e)}")
+            except Exception as e:
+                logger.error(f"AI 응답 생성/처리 중 외부 오류 발생: {e}", exc_info=True)
+                st.error(f"요청 처리 중 심각한 오류 발생: {str(e)}")
 
-# --- (추가) 대화 초기화 시 임시 파일 삭제 로직 (app_main.py로 이동됨) --- 
+# --- (추가) 대화 초기화 시 임시 파일 삭제 로직 (app_main.py로 이동됨) ---
 # def clear_my_temp_passage_files(): ... 
