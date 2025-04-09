@@ -121,7 +121,7 @@ async def generate_question(questions: str) -> str :
     
 async def retrieve_data(query: str, type: Literal["question", "answer"]) -> Dict[str, Any]:
     """수능 문제와 해설 기출 DB에서 검색"""
-    client = chromadb.PersistentClient(path="Agent/DB/kice")
+    client = chromadb.PersistentClient(path="DB/kice")
 
     embedding = SentenceTransformerEmbeddingFunction(model_name="paraphrase-multilingual-mpnet-base-v2")
     collection = client.get_collection(
