@@ -14,7 +14,10 @@ import sys
 import asyncio
 from contextlib import asynccontextmanager
 import re # 정규표현식 모듈 임포트
-
+# ChromaDB가 최신 sqlite3를 사용하도록 설정
+__import__('pysqlite3')
+import sys
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 # Agent.tools 에서 직접 도구 함수 임포트
 from tools import (
     prompt_for_suneung_writing, 

@@ -11,6 +11,10 @@ import logging # 로깅 추가
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# ChromaDB가 최신 sqlite3를 사용하도록 설정
+__import__('pysqlite3')
+import sys
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 # 페이지 설정
 st.set_page_config(page_title="수능 국어 지문 생성기", page_icon="📄", layout="wide")

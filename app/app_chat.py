@@ -11,6 +11,11 @@ import agent_server
 # from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction # 사용되지 않으므로 주석 처리
 from typing import Dict, List, Optional, Any, Union, AsyncGenerator
 
+# ChromaDB가 최신 sqlite3를 사용하도록 설정
+__import__('pysqlite3')
+import sys
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
 # 로깅 설정
 logging.basicConfig(
     level=logging.INFO,
