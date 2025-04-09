@@ -8,6 +8,11 @@ import json
 import os
 import re
 
+# ChromaDB가 최신 sqlite3를 사용하도록 설정
+__import__('pysqlite3')
+import sys
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

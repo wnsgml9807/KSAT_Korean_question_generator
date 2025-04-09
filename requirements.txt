@@ -5,4 +5,5 @@ langchain-core
 streamlit
 requests
 chromadb
-sentence-transformers 
+sentence-transformers
+pysqlite3-binary 
