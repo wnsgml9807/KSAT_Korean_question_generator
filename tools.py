@@ -138,6 +138,7 @@ async def retrieve_data(query: str, type: Literal["question", "answer"]) -> Dict
 
     doc_index = results.get('ids', [[]])[0]
     doc = results.get('documents', [[]])[0]
+    doc = "\n".join(doc[0].split('\n'))
     if type == "question":  
         result = f"""
 [검색어]
