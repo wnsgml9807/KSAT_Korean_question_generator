@@ -6,5 +6,5 @@ streamlit
 requests
 chromadb
 sentence-transformers
-pysqlite3-binary 
+pysqlite3
 HuggingFace_hub
