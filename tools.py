@@ -120,7 +120,7 @@ async def generate_question(questions: str) -> str :
     return formatted_questions
     
 async def retrieve_data(query: str, type: Literal["question", "answer"]) -> Dict[str, Any]:
-    """수능 문제와 해설 기출 DB에서 검색"""
+    """수능 문제와 해설 기출 DB에서 검색, 검색은 지문에 들어있는 키워드를 검색할 수 있어.(예:인공지능)"""
     client = chromadb.PersistentClient(path="DB/kice")
 
     embedding = SentenceTransformerEmbeddingFunction(model_name="paraphrase-multilingual-mpnet-base-v2")
