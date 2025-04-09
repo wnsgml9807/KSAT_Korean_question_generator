@@ -8,7 +8,7 @@ import uuid
 import re
 import asyncio
 import agent_server
-# from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction # 사용되지 않으므로 주석 처리
+from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction # 사용되지 않으므로 주석 처리
 from typing import Dict, List, Optional, Any, Union, AsyncGenerator
 
 # ChromaDB가 최신 sqlite3를 사용하도록 설정

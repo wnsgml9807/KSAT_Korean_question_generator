@@ -14,6 +14,7 @@ import sys
 import asyncio
 from contextlib import asynccontextmanager
 import re # 정규표현식 모듈 임포트
+from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 # ChromaDB가 최신 sqlite3를 사용하도록 설정
 __import__('pysqlite3')
 import sys
