@@ -1,3 +1,4 @@
 .env
 /pycache
 /venv
+/app/app_chat copy.py

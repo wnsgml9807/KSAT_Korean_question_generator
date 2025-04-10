@@ -89,6 +89,7 @@ async def generate_agent_response(agent_executor: Any, prompt: str, session_id: 
         config = {"configurable": {"thread_id": session_id}}
 
         async for event in agent_executor.astream_events(inputs, config=config, version="v1"):
+            print(event)
             kind = event["event"]
             name = event.get("name")
             
