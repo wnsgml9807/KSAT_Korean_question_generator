@@ -21,6 +21,8 @@ from tools import (
     structure_for_suneung_writing,
     prompt_for_technology_subject,
     prompt_for_humanities_subject,
+    subject_for_humanities,
+    subject_for_technology,
     retrieve_data
 )
 
@@ -41,12 +43,14 @@ def initialize_agent():
             max_tokens=3000
         )
         
-        # 도구 리스트 직접 생성
+        # 도구 리스트 직접 생성 (업데이트)
         tools = [
             prompt_for_suneung_writing, 
             structure_for_suneung_writing,
             prompt_for_technology_subject,
             prompt_for_humanities_subject,
+            subject_for_humanities,   # 추가
+            subject_for_technology,   # 추가
             retrieve_data
         ]
         logger.info(f"로컬 도구 로드 완료: {len(tools)} 개")
