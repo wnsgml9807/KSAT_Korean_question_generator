@@ -22,9 +22,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "session_id" not in st.session_state:
     st.session_state.session_id = f"session_{uuid.uuid4()}"
-# if "latest_passage_info" not in st.session_state: # 제거
-#     st.session_state.latest_passage_info = {"title": "", "passage": ""} # 제거
-# 폼 ID별 저장 성공/실패 상태를 관리하기 위한 딕셔너리 추가
+
 if "form_save_status" not in st.session_state:
     st.session_state.form_save_status = {}
 # 세션 전체에서 마지막으로 생성된 지문 텍스트 저장용 변수 추가
@@ -99,66 +97,6 @@ def handle_save(form_id, title, content, question_text, success_placeholder):
         st.session_state.form_save_status[form_id] = {"success": False, "message": "저장 실패!"}
         logger.warning(f"--- Save failed for form {form_id} to {permanent_save_path} ---")
 
-# --- passage_container_layout (최종 단순화) ---
-def passage_container_layout(passage_text: str, is_new: bool):
-    """지문 컨테이너 레이아웃 함수 (순수 텍스트 입력만 처리)"""
-    import time as time_module
-    container_id = f"passage_container_{time_module.time_ns()}_{uuid.uuid4()}"
-
-    # 입력된 passage_text(순수 문자열)를 첫 줄바꿈으로 분리
-    lines = passage_text.strip().split("\n", 1)
-    title = lines[0] if lines else "제목 없음"
-    content = lines[1].strip() if len(lines) > 1 else ""
-
-    with st.container(key=container_id, border=True):
-        if is_new: st.write_stream(typing_effect('### ' + title))
-        else: st.markdown('### ' + title)
-        if is_new: st.write_stream(typing_effect(content))
-        else: st.markdown(content)
-    return container_id
-
-# --- passage_and_question_container_layout (is_new 추가 및 콜백 수정) ---
-def passage_and_question_container_layout(title, content, question_text, is_new, form_id=None):
-    """지문 폼 및 문제 레이아웃 함수 (is_new 플래그, form_id 기반 저장 콜백)"""
-    # form_id가 제공되지 않으면 새로 생성
-    if form_id is None:
-        form_id = f"form_{uuid.uuid4()}"
-
-    # 폼 생성
-    with st.form(key=form_id, border=True):
-        if is_new: st.write_stream(typing_effect('### ' + title))
-        else: st.markdown('### ' + title) # markdown 사용
-
-        # 지문은 항상 expander 안에 표시 (is_new 여부와 관계없이)
-        with st.expander('지문 보기', expanded=False):
-             st.markdown(content) # 항상 markdown 사용
-
-        # 질문 표시
-        if is_new:
-            st.write_stream(typing_effect(question_text))
-        else:
-            st.markdown(question_text) # 항상 markdown 사용
-
-        # --- 성공/실패 메시지 표시를 위한 placeholder ---
-        status_placeholder = st.empty()
-        # 저장 상태 확인 및 메시지 표시 (콜백 실행 후 리렌더링 시 표시됨)
-        form_status = st.session_state.form_save_status.get(form_id)
-        if form_status:
-            if form_status["success"]:
-                status_placeholder.success(form_status["message"])
-            else:
-                status_placeholder.error(form_status["message"])
-            # 메시지 표시 후 상태 제거 (새로고침 시 다시 표시되지 않도록)
-            # del st.session_state.form_save_status[form_id] # -> 콜백에서 상태 설정 후 즉시 표시 어려움. 일단 유지.
-
-        # 저장 버튼 (콜백 함수에 form_id 전달)
-        st.form_submit_button(
-            "저장",
-            on_click=handle_save,
-            args=(form_id, title, content, question_text, status_placeholder) # permanent_save_path 대신 form_id 전달
-        )
-    return form_id
-
 
 # --- 통합 렌더링 함수 ---
 def render_message(message_content: Union[Dict, List, str], ai_placeholder_dict: Dict[str, Optional[st.delta_generator.DeltaGenerator]] = None, ai_text_dict: Dict[str, str] = None, is_new: bool = True):
@@ -186,60 +124,27 @@ def render_message(message_content: Union[Dict, List, str], ai_placeholder_dict:
                 ai_placeholder_dict['current'] = placeholder
             full_text += msg_text
             ai_text_dict['current'] = full_text
-            placeholder.markdown(full_text + " ▌")
+            placeholder.write(full_text + " ▌")
 
         elif msg_type == "ai":
-             st.markdown(msg_text)
+             st.write(msg_text)
 
         elif msg_type == "tool_end" or msg_type == "error":
             if is_new and placeholder is not None:
-                placeholder.markdown(full_text)
+                placeholder.write(full_text)
                 ai_placeholder_dict['current'] = None
                 ai_text_dict['current'] = ""
 
             if msg_type == "tool_end":
-                if tool_name == "generate_passage":
-                    # UI 렌더링 (msg_text는 순수 지문 텍스트)
-                    passage_container_layout(msg_text, is_new=is_new)
-
-                elif tool_name == "generate_question":
-                    # is_new True/False 관계없이 message_content에서 정보 추출
-                    # run_agent_stream에서 이 키들이 message_content에 추가되었음
-                    title = message_content.get("title", "제목 없음")
-                    passage = message_content.get("passage", "지문 없음")
-                    question_text = msg_text # 'text' 키에 질문 내용이 있음
-                    form_id = message_content.get("form_id")
-
-                    if not form_id:
-                         form_id = f"form_missing_{uuid.uuid4()}" # form_id 없으면 임시 ID
-                         logger.warning(f"generate_question message missing form_id. Assigning temporary ID: {form_id}")
-
-                    # 필요한 정보가 있는지 확인 후 레이아웃 호출
-                    if title != "제목 없음" and passage != "지문 없음" and question_text:
-                         passage_and_question_container_layout(
-                             title, passage, question_text, is_new=is_new, form_id=form_id
-                         )
-                    else:
-                         # 정보 부족 시 경고 표시
-                         logger.error(f"generate_question message (form_id: {form_id}) missing critical info in message_content: title='{title}' passage_len={len(passage)} question='{question_text}'")
-                         st.warning(f"질문 ({tool_name}): 메시지 데이터 오류로 완전한 정보를 표시할 수 없습니다.")
-                         with st.container(border=True):
-                             st.markdown(f"**{tool_name} 결과 (정보 불완전):**")
-                             if question_text:
-                                 st.markdown(question_text)
-                             else:
-                                 st.markdown("*질문 내용을 찾을 수 없습니다.*")
-
-                else: # 기타 도구
-                    with st.expander(f"✔️ **{tool_name} 결과:**", expanded=is_new):
-                        try:
-                             if isinstance(msg_text, str):
-                                result_data = json.loads(msg_text)
-                                st.json(result_data)
-                             else:
-                                st.json(msg_text)
-                        except (json.JSONDecodeError, TypeError):
-                             st.code(str(msg_text) if msg_text is not None else "결과 없음", language="text")
+                with st.expander(f"✔️ **{tool_name}**", expanded=is_new):
+                    try:
+                        if isinstance(msg_text, str):
+                            result_data = json.loads(msg_text)
+                            st.json(result_data)
+                        else:
+                            st.json(msg_text)
+                    except (json.JSONDecodeError, TypeError):
+                        st.code(str(msg_text) if msg_text is not None else "결과 없음", language="text")
 
             elif msg_type == "error":
                 error_source = f" (`{tool_name}`)" if tool_name else ""
@@ -249,7 +154,7 @@ def render_message(message_content: Union[Dict, List, str], ai_placeholder_dict:
             pass
 
     elif isinstance(message_content, str): # 사용자 메시지 등
-         st.markdown(message_content)
+         st.write(message_content)
 
     else: # 알 수 없는 타입
         st.write(str(message_content))

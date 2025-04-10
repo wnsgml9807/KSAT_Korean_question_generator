@@ -21,8 +21,6 @@ from tools import (
     structure_for_suneung_writing,
     prompt_for_technology_subject,
     prompt_for_humanities_subject,
-    generate_passage,
-    generate_question,
     retrieve_data
 )
 
@@ -49,8 +47,6 @@ def initialize_agent():
             structure_for_suneung_writing,
             prompt_for_technology_subject,
             prompt_for_humanities_subject,
-            generate_passage,
-            generate_question,
             retrieve_data
         ]
         logger.info(f"로컬 도구 로드 완료: {len(tools)} 개")
@@ -75,7 +71,7 @@ load_dotenv(override=True)
 os.environ["LANGSMITH_TRACING"] = "false"
 # os.environ["LANGSMITH_PROJECT"] = "Kice_Agent"
 
-# --- 응답 생성 함수 단순화 --- 
+# --- 응답 생성 함수 수정 ---
 async def generate_agent_response(agent_executor: Any, prompt: str, session_id: str) -> AsyncGenerator[Dict[str, Any], None]:
     """에이전트 이벤트 스트림을 생성하여 필요한 정보만 yield합니다."""
     if not agent_executor:
@@ -89,14 +85,15 @@ async def generate_agent_response(agent_executor: Any, prompt: str, session_id: 
         config = {"configurable": {"thread_id": session_id}}
 
         async for event in agent_executor.astream_events(inputs, config=config, version="v1"):
-            print(event)
+            # print(event) # 디버깅용 print는 주석 처리하거나 제거
             kind = event["event"]
+            run_id = event.get("run_id") # 모든 이벤트에서 run_id 가져오기 시도
             name = event.get("name")
-            
+            print(kind, name)
             if kind == "on_chat_model_stream":
                 data = event.get("data", {})
                 chunk = data.get("chunk")
-                if chunk and hasattr(chunk, 'content'): 
+                if chunk and hasattr(chunk, 'content'):
                     content = chunk.content # 항상 리스트라고 가정
                     token_text = ""
                     if isinstance(content, list):
@@ -105,74 +102,54 @@ async def generate_agent_response(agent_executor: Any, prompt: str, session_id: 
                                 token_text += block.get("text", "")
                     if token_text:
                         yield {"type": "ai_token", "text": token_text}
-            
-            # on_chain_stream, on_tool_start 이벤트는 처리/yield하지 않음
+
+            elif kind == "on_tool_start":
+                # generate_passage 또는 generate_question은 이제 일반 도구임
+                # if name in ["generate_passage", "generate_question"]: # 조건 제거
+                # 모든 도구 시작 시 로깅만 하고 yield는 하지 않음 (필요시 아래 주석 해제)
+                logger.info(f"SERVER: Tool start: {name} (run_id: {run_id})")
+                # yield {
+                #     "type": "tool_start",
+                #     "tool_name": name,
+                #     "run_id": run_id
+                # }
 
             elif kind == "on_tool_end":
                 data = event.get("data", {})
-                tool_output = data.get("output") # ToolMessage 객체 또는 다른 타입일 수 있음
-                name = event.get("name")
-                output_content_str = "" # 최종적으로 yield할 순수 텍스트
+                tool_output = data.get("output")
+                output_content_str = "" # 최종 텍스트 초기화
 
-                # generate_passage 결과 처리: content='...' 또는 순수 텍스트 처리
-                if name == "generate_passage":
-                    actual_content = ""
-                    # tool_output이 ToolMessage 객체인지 확인
-                    if isinstance(tool_output, ToolMessage):
-                        actual_content = tool_output.content
-                    else: # ToolMessage가 아니면 tool_output 자체를 내용으로 간주
-                        actual_content = tool_output
-
-                    # 실제 내용(actual_content)이 문자열인지 확인
-                    if isinstance(actual_content, str):
-                        stripped_content = actual_content.strip()
-                        # content='...' 형태인지 확인 (문자열 메소드 사용)
-                        if stripped_content.startswith("content='") and stripped_content.endswith("'"): # Use ' not "
-                             # 앞뒤 'content='와 ' 제거
-                             start_index = len("content='")
-                             end_index = -1 # 마지막 ' 제외
-                             output_content_str = stripped_content[start_index:end_index].strip() # 추출 후 앞뒤 공백 제거
-                             logger.info("generate_passage: Extracted content from 'content=...' string.")
-                        else:
-                             # content='...' 형태가 아니면 순수 텍스트로 간주
-                             output_content_str = actual_content
-                             logger.info("generate_passage: Using raw string output.")
-                    elif actual_content is not None:
-                        # 문자열이 아닌 다른 타입이면 문자열로 변환 (예외 처리)
-                        output_content_str = str(actual_content)
-                        logger.warning(f"generate_passage: Output was not a string ({type(actual_content)}), converted to string.")
-                    # else: actual_content is None 이면 output_content_str은 "" 유지
-
-                # 다른 도구 결과 처리 (단순 문자열 변환)
-                else:
-                    if isinstance(tool_output, ToolMessage):
-                        output_content_str = str(tool_output.content) if tool_output.content is not None else ""
-                    elif tool_output is not None:
-                        output_content_str = str(tool_output)
-                    # else: tool_output is None 이면 output_content_str은 "" 유지
-
-                logger.info(f"Tool end: {name}, Yielding text: {output_content_str[:100]}...")
+                # --- 결과 텍스트 추출 로직 (모든 도구에 동일 적용) ---
+                if isinstance(tool_output, ToolMessage):
+                    output_content_str = str(tool_output.content) if tool_output.content is not None else ""
+                elif tool_output is not None:
+                    output_content_str = str(tool_output)
+                # --- 추출 로직 끝 ---
+                
+                logger.info(f"Tool end: {name} (run_id: {run_id}), Yielding text: {output_content_str[:50]}...")
                 yield {
                     "type": "tool_end",
                     "tool_name": name,
-                    "text": output_content_str # 항상 순수 텍스트 또는 빈 문자열
+                    "text": output_content_str,
+                    "run_id": run_id
                 }
 
             elif kind in ["on_tool_error", "on_chain_error", "on_llm_error"]:
-                # 오류는 간단히 문자열로 변환하여 전달
                 error_message = str(event.get("data", ""))
-                logger.error(f"Error ({kind}): {name} - {error_message}")
+                logger.error(f"Error ({kind}): {name} (run_id: {run_id}) - {error_message}")
                 yield {
                     "type": "error",
                     "tool_name": name,
-                    "text": error_message
+                    "text": error_message,
+                    "run_id": run_id # 오류 발생 시에도 run_id 포함 (스피너 제거용)
                 }
+            # 다른 이벤트 (on_chain_start, on_chain_stream 등)는 무시
 
     except Exception as e:
-        # 스트림 루프 자체의 예외
         logger.error(f"스트림 처리 중 예외: {str(e)}", exc_info=True)
         yield {
             "type": "error",
             "text": f"스트림 오류: {str(e)}"
+            # run_id를 특정할 수 없으므로 여기서는 포함하지 않음
         }
 # --- 응답 생성 함수 끝 --- 

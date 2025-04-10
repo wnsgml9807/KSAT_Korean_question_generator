@@ -70,50 +70,6 @@ async def prompt_for_humanities_subject() :
     """
     return prompt
 
-async def generate_passage(passage: str) -> str :
-    """지문 작성 시 반드시 이 함수를 통해 지문 출력해.
-    첫 줄에는 지문 제목을 붙여줘.
-    문단 바꾸기를 할 때에는 줄 바꿈을 해 줘."""
-    
-    # 단순 포맷팅 후 반환 (임시 파일 저장 로직 제거)
-    lines = passage.strip().split('\n')
-    title = lines[0] if lines else "제목 없음"
-    content_body = '\n'.join(lines[1:]) if len(lines) > 1 else ""
-    formatted_passage_output = f"{title}\n{content_body}" 
-    
-    return formatted_passage_output
-
-async def generate_question(questions: str) -> str :
-    """문제를 작성 시 반드시 이 함수를 통해 출력해. 표준 마크다운 형식을 사용해줘. 지문은 포함하지 말고 문제만 출력해.
-    1.  질문(1. 윗글에 대한~)은 **볼드체**로 표시해줘.
-    2.  각 선지(①~⑤)는 마크다운 인용(>) 형식으로 표시해줘.
-    3.  <보기>가 포함된 경우:내용을 헤더 없는 1열 마크다운 테이블 안에 !볼드 없이! 넣어줘. 보기 내용 안에서 줄바꿈이 필요하면 HTML `<br>`태그를 사용해줘.
-        예시:
-        | <보기> 	|
-        |---	|
-        | 내용 |
-        
-    4.  질문과 첫 번째 선지/보기 테이블 사이, 그리고 각 문제 사이에는 **빈 줄 하나(\n\n)**를 넣어줘.
-    5.  선지 등 테이블 외부의 텍스트 줄 끝에는 (빈 줄 제외) **스페이스 두 개**를 추가하여 줄바꿈(\n)을 명확히 해줘."""
-
-    raw_questions = f'{questions}'.strip()
-
-    # --- 후처리: 줄 끝 스페이스 추가 (테이블 외부용) ---
-    processed_lines = []
-    # 테이블 내부에도 스페이스가 추가될 수 있으나, <br> 사용 시 큰 문제 없을 것으로 예상
-    for line in raw_questions.split('\n'):
-        if line.strip(): 
-            processed_lines.append(line + "  ") 
-        else:
-            processed_lines.append(line) 
-            
-    formatted_questions = '\n'.join(processed_lines)
-    # ----------------------------------------------------
-
-    # <보기> 테이블 변환 후처리 로직 없음 (AI 생성 의존)
-
-    return formatted_questions
-    
 async def retrieve_data(query: str, type: Literal["question", "answer"]) -> Dict[str, Any]:
     """수능 문제와 해설 기출 DB에서 검색, 검색은 지문에 들어있는 키워드를 검색할 수 있어.(예:인공지능)"""
     client = chromadb.PersistentClient(path="DB/kice")
