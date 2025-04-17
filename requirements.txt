@@ -1,0 +1,9 @@
+streamlit
+json
+requests
+logging
+os
+uuid
+pydantic
+pysqlite3-binary
+
