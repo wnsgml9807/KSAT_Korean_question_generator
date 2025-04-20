@@ -1,0 +1,6 @@
+[theme]
+base="light"
+secondaryBackgroundColor="#b9eaea"
+
+[runner]
+scriptRunnerRerunWatchLength = 3600
