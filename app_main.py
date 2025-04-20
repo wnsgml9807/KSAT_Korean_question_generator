@@ -144,7 +144,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
     # 어시스턴트 응답 처리 시작
     with st.chat_message("assistant"):
         # 플레이스홀더 30개 미리 생성
-        placeholders = [st.empty() for _ in range(30)]
+        placeholders = [st.empty() for _ in range(50)]
         
         # 현재 사용할 플레이스홀더 인덱스
         current_idx = 0
@@ -164,7 +164,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                 f"{FASTAPI_SERVER_URL}/chat/stream",
                 json={"prompt": prompt, "session_id": st.session_state.session_id},
                 stream=True,
-                timeout=600
+                timeout=1200
             )
             response.raise_for_status()
             logger.info("백엔드 스트림 연결 성공")
