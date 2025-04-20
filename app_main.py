@@ -24,7 +24,7 @@ st.set_page_config(
 # 사이드바 UI 구성
 with st.sidebar:
     st.title("수능 독서 출제용 Agent")
-    st.write("Version 0.1.0")
+    st.write("Version 0.2.0")
 
     st.info(
         """
