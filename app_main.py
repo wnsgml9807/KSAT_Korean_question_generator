@@ -112,7 +112,7 @@ def render_message(message):
                                     st.markdown(item["content"])
                             else:
                                 # 다른 도구들은 익스팬더로 표시
-                                with placeholders[current_idx].expander(f"🛠️ {tool_name}"):
+                                with placeholders[current_idx].expander(f"🛠️ {tool_name} 도구를 사용합니다."):
                                     st.code(item["content"])
                             current_idx += 1
                             
@@ -227,7 +227,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                             with placeholders[current_idx].container():
                                 st.markdown(text)
                         else:
-                            with placeholders[current_idx].expander(f"🛠️ {tool_name}", expanded=False):
+                            with placeholders[current_idx].expander(f"🛠️ {tool_name} 도구를 사용합니다.", expanded=False):
                                 st.code(text)
                         
                         # 도구 실행 결과 저장
