@@ -19,8 +19,15 @@ st.set_page_config(
     page_title="KSAT 국어 출제용 AI",
     page_icon="📚",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={
+        "Get Help": None,
+        "Report a bug": None,
+        "About": None,
+    }
 )
+
+st.set_option("client.toolbarMode", False)
 
 # 사이드바 UI 구성
 with st.sidebar:
