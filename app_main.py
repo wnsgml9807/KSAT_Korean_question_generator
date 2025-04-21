@@ -119,7 +119,7 @@ def render_message(message):
                         elif item["type"] == "agent_change":
                             # 에이전트 전환 시 새로운 섹션 시작
                             current_agent = item.get("agent", "unknown")
-                            placeholders[current_idx].markdown(f"----- \n### {current_agent}:")
+                            placeholders[current_idx].success(f"{current_agent} 에이전트에게 통제권을 전달합니다.")
                             current_idx += 1
                             
                 else:
@@ -194,7 +194,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                         
                         # 에이전트 전환 표시
                         with placeholders[current_idx].container():
-                            st.markdown(f"----- \n### {agent}:")
+                            st.success(f"{agent} 에이전트에게 통제권을 전달합니다.")
                         message_data["messages"].append({
                             "type": "agent_change",
                             "agent": agent
