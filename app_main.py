@@ -184,7 +184,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                         # 현재 텍스트 저장 (있을 경우)
                         if current_text:
                             with placeholders[current_idx].container():
-                                st.markdown(current_text)
+                                st.write(current_text)
                             message_data["messages"].append({
                                 "type": "text",
                                 "content": current_text
@@ -227,7 +227,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                             with placeholders[current_idx].container():
                                 st.markdown(text)
                         else:
-                            with placeholders[current_idx].expander(f"🛠️ {tool_name}", expanded=True):
+                            with placeholders[current_idx].expander(f"🛠️ {tool_name}", expanded=False):
                                 st.code(text)
                         
                         # 도구 실행 결과 저장
