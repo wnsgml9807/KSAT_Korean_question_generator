@@ -85,7 +85,7 @@ def render_message(message):
     
     # 어시스턴트 메시지 표시
     if role == "assistant":
-        with st.container(border=True):
+        with st.container(border=False):
             # 플레이스홀더 30개 미리 생성
             placeholders = [st.empty() for _ in range(30)]
             current_idx = 0
@@ -100,7 +100,7 @@ def render_message(message):
                     for item in msg_data["messages"]:
                         if item["type"] == "text":
                             # 일반 텍스트 메시지
-                            with placeholders[current_idx].container():
+                            with placeholders[current_idx].container(border=True):
                                 st.markdown(item["content"])
                             current_idx += 1
                             
@@ -120,7 +120,8 @@ def render_message(message):
                         elif item["type"] == "agent_change":
                             # 에이전트 전환 시 새로운 섹션 시작
                             current_agent = item.get("agent", "unknown")
-                            placeholders[current_idx].success(f"{current_agent} 에이전트에게 통제권을 전달합니다.")
+                            with placeholders[current_idx].container(border=True):
+                                st.success(f"{current_agent} 에이전트에게 통제권을 전달합니다.")
                             current_idx += 1
                             
                 else:
@@ -143,7 +144,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
     render_message({"role": "user", "content": prompt})
 
     # 어시스턴트 응답 처리 시작
-    with st.container(border=True):   
+    with st.container(border=False):   
         # 플레이스홀더 30개 미리 생성
         placeholders = [st.empty() for _ in range(50)]
         
@@ -194,7 +195,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                             current_text = ""
                         
                         # 에이전트 전환 표시
-                        with placeholders[current_idx].container():
+                        with placeholders[current_idx].container(border=False):
                             st.success(f"{agent} 에이전트에게 통제권을 전달합니다.")
                         message_data["messages"].append({
                             "type": "agent_change",
@@ -207,13 +208,13 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                     if msg_type == "message":
                         # 일반 텍스트는 현재 플레이스홀더에 스트리밍
                         current_text += text
-                        with placeholders[current_idx].container():
+                        with placeholders[current_idx].container(border=True):
                             st.markdown(current_text)
                         
                     elif msg_type == "tool":
                         # 현재 텍스트 저장 (있을 경우)
                         if current_text:
-                            with placeholders[current_idx].container():
+                            with placeholders[current_idx].container(border=True):
                                 st.markdown(current_text)
                             message_data["messages"].append({
                                 "type": "text",
@@ -225,7 +226,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                         # 도구 실행 결과를 새 플레이스홀더에 익스팬더로 표시
                         tool_name = payload.get("tool_name")
                         if tool_name == "handoff_for_agent" or tool_name == "handoff_for_supervisor":
-                            with placeholders[current_idx].container():
+                            with placeholders[current_idx].container(border=True):
                                 st.markdown(text)
                         else:
                             with placeholders[current_idx].expander(f"🛠️ {tool_name} 도구를 사용합니다.", expanded=False):
@@ -242,7 +243,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                     elif msg_type == "end":
                         # 최종 텍스트 저장
                         if current_text:
-                            with placeholders[current_idx].container():
+                            with placeholders[current_idx].container(border=True):
                                 st.markdown(current_text)
                             message_data["messages"].append({
                                 "type": "text",
