@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_extras.stylable_container import stylable_container
 import logging
 import os
 import uuid
@@ -84,7 +85,7 @@ def render_message(message):
     
     # 어시스턴트 메시지 표시
     if role == "assistant":
-        with st.chat_message("assistant"):
+        with st.container(border=True):
             # 플레이스홀더 30개 미리 생성
             placeholders = [st.empty() for _ in range(30)]
             current_idx = 0
@@ -142,7 +143,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
     render_message({"role": "user", "content": prompt})
 
     # 어시스턴트 응답 처리 시작
-    with st.chat_message("assistant"):
+    with st.container(border=True):   
         # 플레이스홀더 30개 미리 생성
         placeholders = [st.empty() for _ in range(50)]
         
