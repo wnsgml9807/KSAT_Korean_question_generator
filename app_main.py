@@ -85,50 +85,56 @@ def render_message(message):
     
     # 어시스턴트 메시지 표시
     if role == "assistant":
-        with st.container(border=True):
-            # 플레이스홀더 30개 미리 생성
-            placeholders = [st.empty() for _ in range(30)]
+        with st.container(border=False):
+            # 플레이스홀더 50개 미리 생성 (스트리밍 로직과 일치)
+            placeholders = [st.empty() for _ in range(50)]
             current_idx = 0
             
-            # 메시지가 JSON 형식인지 확인
-            try:
-                msg_data = json.loads(content) if isinstance(content, str) else content
-                if isinstance(msg_data, dict) and "messages" in msg_data:
-                    current_agent = "supervisor"
+            # 문자열인 경우 처리
+            if isinstance(content, str):
+                try:
+                    # JSON 파싱 시도
+                    msg_data = json.loads(content)
+                except (json.JSONDecodeError, TypeError):
+                    # JSON 아닌 경우 그대로 표시 (에러 메시지 등)
+                    st.markdown(content)
+                    return
+            else:
+                # 이미 딕셔너리인 경우
+                msg_data = content
+            
+            # messages 키가 있는 경우 (새 형식)
+            if isinstance(msg_data, dict) and "messages" in msg_data:
+                for item in msg_data["messages"]:
+                    item_type = item.get("type", "")
                     
-                    # 메시지 항목 순회
-                    for item in msg_data["messages"]:
-                        if item["type"] == "text":
-                            # 일반 텍스트 메시지
+                    if item_type == "text":
+                        # 텍스트 메시지는 border=True 컨테이너에 표시
+                        with placeholders[current_idx].container(border=True):
+                            st.markdown(item["content"])
+                        current_idx += 1
+                        
+                    elif item_type == "tool":
+                        # 도구 실행 결과
+                        tool_name = item.get("name", "도구 실행 결과")
+                        if tool_name in ["handoff_for_agent", "handoff_for_supervisor"]:
+                            # 핸드오프는 border=False 컨테이너에 표시
                             with placeholders[current_idx].container(border=False):
                                 st.markdown(item["content"])
-                            current_idx += 1
-                            
-                        elif item["type"] == "tool":
-                            # 도구 실행 결과
-                            tool_name = item.get("name", "도구 실행 결과")
-                            if tool_name in ["handoff_for_agent", "handoff_for_supervisor"]:
-                                # 핸드오프는 일반 마크다운으로 표시
-                                with placeholders[current_idx].container(border=False):
-                                    st.markdown(item["content"])
-                            else:
-                                # 다른 도구들은 익스팬더로 표시
-                                with placeholders[current_idx].expander(f"🛠️ {tool_name} 도구를 사용합니다."):
-                                    st.code(item["content"])
-                            current_idx += 1
-                            
-                        elif item["type"] == "agent_change":
-                            # 에이전트 전환 시 새로운 섹션 시작
-                            current_agent = item.get("agent", "unknown")
-                            placeholders[current_idx].success(f"{current_agent} 에이전트에게 통제권을 전달합니다.")
-                            current_idx += 1
-                            
-                else:
-                    # 기존 형식 지원
-                    st.markdown(content)
-            except (json.JSONDecodeError, TypeError):
-                # 기존 메시지 형식 표시 (하위 호환성)
-                st.markdown(content)
+                        else:
+                            # 다른 도구들은 익스팬더에 표시, expanded=False로 일치
+                            with placeholders[current_idx].expander(f"🛠️ {tool_name} 도구를 사용합니다.", expanded=False):
+                                st.code(item["content"])
+                        current_idx += 1
+                        
+                    elif item_type == "agent_change":
+                        # 에이전트 전환은 success 메시지로 표시
+                        with placeholders[current_idx].container(border=False):
+                            st.success(f"{item.get('agent', 'unknown')} 에이전트에게 통제권을 전달합니다.")
+                        current_idx += 1
+            else:
+                # 기존 형식 또는 에러 메시지는 그대로 표시
+                st.markdown(str(content))
 
 # --- 저장된 메시지 표시 ---
 for message in st.session_state.messages:
@@ -143,7 +149,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
     render_message({"role": "user", "content": prompt})
 
     # 어시스턴트 응답 처리 시작
-    with st.container(border=True):   
+    with st.container(border=False):   
         # 플레이스홀더 30개 미리 생성
         placeholders = [st.empty() for _ in range(50)]
         
@@ -184,7 +190,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                     if agent != current_agent:
                         # 현재 텍스트 저장 (있을 경우)
                         if current_text:
-                            with placeholders[current_idx].container():
+                            with placeholders[current_idx].container(border=True):
                                 st.write(current_text)
                             message_data["messages"].append({
                                 "type": "text",
@@ -207,13 +213,13 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                     if msg_type == "message":
                         # 일반 텍스트는 현재 플레이스홀더에 스트리밍
                         current_text += text
-                        with placeholders[current_idx].container(border=False):
+                        with placeholders[current_idx].container(border=True):
                             st.markdown(current_text)
                         
                     elif msg_type == "tool":
                         # 현재 텍스트 저장 (있을 경우)
                         if current_text:
-                            with placeholders[current_idx].container(border=False):
+                            with placeholders[current_idx].container(border=True):
                                 st.markdown(current_text)
                             message_data["messages"].append({
                                 "type": "text",
@@ -224,11 +230,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                         
                         # 도구 실행 결과를 새 플레이스홀더에 익스팬더로 표시
                         tool_name = payload.get("tool_name")
-                        if tool_name == "handoff_for_agent" or tool_name == "handoff_for_supervisor":
-                            with placeholders[current_idx].container(border=False):
-                                st.markdown(text)
-                        else:
-                            with placeholders[current_idx].expander(f"🛠️ {tool_name} 도구를 사용합니다.", expanded=False):
+                        with placeholders[current_idx].expander(f"🛠️ {tool_name} 도구를 사용합니다.", expanded=False):
                                 st.code(text)
                         
                         # 도구 실행 결과 저장
@@ -242,7 +244,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                     elif msg_type == "end":
                         # 최종 텍스트 저장
                         if current_text:
-                            with placeholders[current_idx].container(border=False):
+                            with placeholders[current_idx].container(border=True):
                                 st.markdown(current_text)
                             message_data["messages"].append({
                                 "type": "text",
