@@ -2,7 +2,5 @@
 base="light"
 secondaryBackgroundColor="#d2e8e8"
 
-
-
-[runner]
-scriptRunnerRerunWatchLength = 3600
+[client]   
+toolbarMode="viewer"

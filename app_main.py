@@ -20,14 +20,26 @@ st.set_page_config(
     page_icon="📚",
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items={
-        "Get Help": None,
-        "Report a bug": None,
-        "About": None,
-    }
 )
 
-st.set_option("client.toolbarMode", False)
+# 나눔명조체 추가
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
+.passage-font {
+    font-family: 'Nanum Myeongjo', serif !important;
+    line-height: 1.7;
+    letter-spacing: -0.01em;
+    font-weight: 500;
+}
+.question-font {
+    font-family: 'Nanum Myeongjo', serif !important;
+    line-height: 1.7;
+    letter-spacing: -0.01em;
+    font-weight: 500;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # 사이드바 UI 구성
 with st.sidebar:
@@ -118,7 +130,10 @@ def render_message(message):
                     if item_type == "text":
                         # 텍스트 메시지는 border=True 컨테이너에 표시
                         with placeholders[current_idx].container(border=True):
-                            st.markdown(item["content"])
+                            st.markdown(
+                                item["content"],
+                                unsafe_allow_html=True
+                            )
                         current_idx += 1
                         
                     elif item_type == "tool":
@@ -198,7 +213,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                         # 현재 텍스트 저장 (있을 경우)
                         if current_text:
                             with placeholders[current_idx].container(border=True):
-                                st.write(current_text)
+                                st.markdown(current_text, unsafe_allow_html=True)
                             message_data["messages"].append({
                                 "type": "text",
                                 "content": current_text
@@ -221,13 +236,13 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                         # 일반 텍스트는 현재 플레이스홀더에 스트리밍
                         current_text += text
                         with placeholders[current_idx].container(border=True):
-                            st.markdown(current_text)
+                            st.markdown(current_text, unsafe_allow_html=True)
                         
                     elif msg_type == "tool":
                         # 현재 텍스트 저장 (있을 경우)
                         if current_text:
                             with placeholders[current_idx].container(border=True):
-                                st.markdown(current_text)
+                                st.markdown(current_text, unsafe_allow_html=True)
                             message_data["messages"].append({
                                 "type": "text",
                                 "content": current_text
@@ -252,7 +267,7 @@ if prompt := st.chat_input("질문을 입력하세요..."):
                         # 최종 텍스트 저장
                         if current_text:
                             with placeholders[current_idx].container(border=True):
-                                st.markdown(current_text)
+                                st.markdown(current_text, unsafe_allow_html=True)
                             message_data["messages"].append({
                                 "type": "text",
                                 "content": current_text
