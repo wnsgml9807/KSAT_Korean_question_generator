@@ -1,6 +1,5 @@
 import streamlit as st
 from st_screen_stats import ScreenData
-from streamlit_extras.stylable_container import stylable_container
 import logging
 import os
 import uuid
