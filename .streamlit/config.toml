@@ -7,4 +7,13 @@ secondaryBackgroundColor="#f7f7f7"
 
 [server]
 disconnectedSessionTTL = 600
+enableXsrfProtection = false
+maxUploadSize = 500
+maxMessageSize = 500
+enableCORS = false
 
+[toolbar]
+items = []
+
+[runner]
+fastReruns = false
