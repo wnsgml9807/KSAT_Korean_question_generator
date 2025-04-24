@@ -3,5 +3,4 @@ requests
 sseclient
 streamlit-extras
 streamlit-screen-stats
-st_screen_stats
 
