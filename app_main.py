@@ -366,13 +366,17 @@ class BackendClient:
         artifact_type = "chat"
         has_ended = False  # 정상 종료 여부 추적
         
+        # for line in response.iter_lines(decode_unicode=True):
+        #     if not line or not line.startswith("data: "):
+        #         continue
         for line in response.iter_lines(decode_unicode=True):
-            if not line or not line.startswith("data: "):
+            if not line:
                 continue
             
             try:
                 # Parse event data
-                payload = self._parse_stream_line(line)
+                #payload = self._parse_stream_line(line)
+                payload = json.loads(line)
                 msg_type = payload.get("type", "message")
                 text = payload.get("text", "")
                 agent = payload.get("response_agent", "unknown")
