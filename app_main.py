@@ -15,7 +15,7 @@ class Config:
         self.page_title = "KSAT 국어 출제용 AI"
         self.page_icon = "📚"
         self.layout = "wide"
-        self.sidebar_state = "collapsed"
+        self.sidebar_state = "expanded"
         self.version = "0.2.0"
         self.author = "권준희"
         self.contact = "wnsgml9807@naver.com"
