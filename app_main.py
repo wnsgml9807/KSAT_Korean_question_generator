@@ -89,6 +89,7 @@ class UI:
             page_icon=config.page_icon,
             layout=config.layout,
             initial_sidebar_state=config.sidebar_state,
+            menu_items={}
         )
     
     @staticmethod

@@ -11,9 +11,7 @@ enableXsrfProtection = false
 maxUploadSize = 500
 maxMessageSize = 500
 enableCORS = false
-
-[toolbar]
-items = []
+enableStaticServing = True
 
 [runner]
 fastReruns = false
