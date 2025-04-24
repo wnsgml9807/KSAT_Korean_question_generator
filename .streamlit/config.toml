@@ -1,6 +1,10 @@
 [theme]
 base="light"
-secondaryBackgroundColor="#d2e8e8"
+secondaryBackgroundColor="#f7f7f7"
 
 [client]   
-toolbarMode="viewer"
+#toolbarMode="minimal"
+
+[server]
+disconnectedSessionTTL = 600
+
