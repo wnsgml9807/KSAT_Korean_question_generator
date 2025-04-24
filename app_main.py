@@ -116,6 +116,7 @@ class UI:
         </style>
         """, unsafe_allow_html=True)
     
+
     @staticmethod
     def create_sidebar(config, logger):
         """Create and populate the sidebar"""
@@ -130,14 +131,40 @@ class UI:
                 """
             )
             
+            # 세션 상태에 화면 높이 저장용 키
+            if "viewport_height" not in st.session_state:
+                st.session_state.viewport_height = 800  # 기본값으로 초기화
+            
             # Get screen data for responsive design
-            screen_data = ScreenData()
-            stats = screen_data.st_screen_data()
-            height = stats.get("innerHeight")
+            try:
+                screen_data = ScreenData()
+                stats = screen_data.st_screen_data()
+                
+                # None이 아닐 때만 세션 상태 업데이트
+                if stats is not None and "innerHeight" in stats:
+                    height = stats.get("innerHeight")
+                    # 유효한 높이 값이면 세션 상태 업데이트
+                    if height is not None and isinstance(height, (int, float)) and height > 0:
+                        st.session_state.viewport_height = height
+                
+                # 항상 세션 상태의 값을 사용
+                height = st.session_state.viewport_height
+                logger.info(f"현재 뷰포트 높이: {height}px")
+                
+            except Exception as e:
+                logger.error(f"화면 데이터 얻기 실패: {str(e)}")
+                height = st.session_state.viewport_height  # 오류 발생 시 세션 상태 사용
             
             # Session reset button
             if st.button("🔄️ 세션 초기화"):
+                # 뷰포트 높이는 유지
+                viewport_height = st.session_state.viewport_height
+                
                 SessionManager.reset_session(logger)
+                
+                # 뷰포트 높이 복원
+                st.session_state.viewport_height = viewport_height
+                
                 st.success("세션이 초기화되었습니다. 페이지를 새로고침합니다.")
                 time.sleep(1)
                 st.rerun()
