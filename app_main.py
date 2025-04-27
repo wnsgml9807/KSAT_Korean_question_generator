@@ -134,10 +134,36 @@ class UI:
                 """
             )
             
-            # Always use session state value if available, otherwise use default
-            height = st.session_state.get("viewport_height", 800) # Use .get with default
-            logger.info(f"현재 뷰포트 높이: {height}px")
-            
+            # Get screen data for responsive design - Restore this block
+            try:
+                screen_data = ScreenData()
+                stats = screen_data.st_screen_data()
+
+                # None이 아닐 때만 세션 상태 업데이트
+                if stats is not None and "innerHeight" in stats:
+                    height = stats.get("innerHeight")
+                    # 유효한 높이 값이면 세션 상태 업데이트
+                    if height is not None and isinstance(height, (int, float)) and height > 0:
+                        st.session_state.viewport_height = height
+                        logger.info(f"뷰포트 높이 업데이트: {height}px") # Log update
+                    else: # Log invalid height received
+                        logger.warning(f"수신된 뷰포트 높이 값이 유효하지 않음: {height}")
+                else: # Log if stats is None or innerHeight is missing
+                     logger.warning(f"화면 통계에서 innerHeight를 찾을 수 없음: {stats}")
+
+
+            except Exception as e:
+                logger.error(f"화면 데이터 얻기 실패: {str(e)}")
+                # 오류 발생 시에도 기존 세션 값이나 기본값 유지 시도
+                height = st.session_state.get("viewport_height", 800)
+                logger.info(f"화면 데이터 얻기 실패, 세션/기본 높이 사용: {height}px")
+
+            # 항상 최신 세션 상태 값 사용 로그 (디버깅 도움)
+            current_height_in_state = st.session_state.get("viewport_height", 800)
+            logger.info(f"현재 세션 뷰포트 높이: {current_height_in_state}px")
+            # create_sidebar no longer returns height, it just ensures session_state is updated.
+
+
             # Session reset button
             if st.button("🔄️ 세션 초기화"): # Button text simplified
                 # Store viewport height temporarily
@@ -152,6 +178,7 @@ class UI:
                 st.success("세션이 초기화되었습니다. 페이지를 새로고침합니다.")
                 time.sleep(1)
                 st.rerun()
+            # Removed return height, sidebar content is common. Height is managed in session state.
     
     @staticmethod
     def create_layout(viewport_height):
