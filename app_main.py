@@ -7,6 +7,7 @@ import requests
 import json
 import re
 import time
+from streamlit import Page # Import Page
 
 # Configuration class for app settings
 class Config:
@@ -19,6 +20,7 @@ class Config:
         self.version = "0.2.0"
         self.author = "권준희"
         self.contact = "wnsgml9807@naver.com"
+        self.about_page_path = "pages/about.py" # Add path for about page
         
         # Backend URL configuration
         try:
@@ -120,7 +122,7 @@ class UI:
 
     @staticmethod
     def create_sidebar(config, logger):
-        """Create and populate the sidebar"""
+        """Create and populate the sidebar with common elements"""
         with st.sidebar:
             st.title("수능 독서 출제용 Agent")
             st.write(f"Version {config.version}")
@@ -132,45 +134,24 @@ class UI:
                 """
             )
             
-            # 세션 상태에 화면 높이 저장용 키
-            if "viewport_height" not in st.session_state:
-                st.session_state.viewport_height = 800  # 기본값으로 초기화
-            
-            # Get screen data for responsive design
-            try:
-                screen_data = ScreenData()
-                stats = screen_data.st_screen_data()
-                
-                # None이 아닐 때만 세션 상태 업데이트
-                if stats is not None and "innerHeight" in stats:
-                    height = stats.get("innerHeight")
-                    # 유효한 높이 값이면 세션 상태 업데이트
-                    if height is not None and isinstance(height, (int, float)) and height > 0:
-                        st.session_state.viewport_height = height
-                
-                # 항상 세션 상태의 값을 사용
-                height = st.session_state.viewport_height
-                logger.info(f"현재 뷰포트 높이: {height}px")
-                
-            except Exception as e:
-                logger.error(f"화면 데이터 얻기 실패: {str(e)}")
-                height = st.session_state.viewport_height  # 오류 발생 시 세션 상태 사용
+            # Always use session state value if available, otherwise use default
+            height = st.session_state.get("viewport_height", 800) # Use .get with default
+            logger.info(f"현재 뷰포트 높이: {height}px")
             
             # Session reset button
-            if st.button("🔄️ 세션 초기화"):
-                # 뷰포트 높이는 유지
-                viewport_height = st.session_state.viewport_height
-                
+            if st.button("🔄️ 세션 초기화"): # Button text simplified
+                # Store viewport height temporarily
+                viewport_height = st.session_state.get("viewport_height")
+
                 SessionManager.reset_session(logger)
-                
-                # 뷰포트 높이 복원
-                st.session_state.viewport_height = viewport_height
-                
+
+                # Restore viewport height if it existed
+                if viewport_height is not None:
+                    st.session_state.viewport_height = viewport_height
+
                 st.success("세션이 초기화되었습니다. 페이지를 새로고침합니다.")
                 time.sleep(1)
                 st.rerun()
-            
-            return height
     
     @staticmethod
     def create_layout(viewport_height):
@@ -202,7 +183,7 @@ class UI:
         if screen_height is not None:
             return max(int(screen_height) - 250, 300)
         else:
-            return 300
+            return 300 # Keep default
 
 # Message Handling
 class MessageRenderer:
@@ -623,50 +604,79 @@ class BackendClient:
             
         return error_msg
 
-# Main Application
-def main():
-    """Main application entry point"""
-    # Setup
-    config = Config()
-    logger = setup_logging()
-    
-    # Initialize UI
-    UI.setup_page_config(config)
-    screen_height = UI.create_sidebar(config, logger)
-    UI.add_custom_css()
-    
-    # Calculate viewport height
-    viewport_height = UI.calculate_viewport_height(screen_height)
-    
-    # Create layout
+# Main Application Page Logic
+def show_main_app(config, logger):
+    """Displays the main chat interface and handles interaction"""
+    # Calculate viewport height using session state value set in sidebar
+    viewport_height = UI.calculate_viewport_height(st.session_state.get("viewport_height", 800))
+
+    # Create layout for the main app page
     chat_container, passage_placeholder, question_placeholder = UI.create_layout(viewport_height)
-    
-    # Initialize session
+
+    # Initialize session (ensures messages/session_id exist)
     SessionManager.initialize_session(logger)
-    
+
     # Create helpers
     message_renderer = MessageRenderer(chat_container, passage_placeholder, question_placeholder)
     backend_client = BackendClient(config.backend_url, chat_container, passage_placeholder, question_placeholder, logger)
-    
+
     # Display existing messages
     for message in st.session_state.messages:
         message_renderer.render_message(message)
-    
+
     # Handle user input
     if prompt := st.chat_input("질문을 입력하세요..."):
         # Add user message to session state
         SessionManager.add_message("user", prompt)
-        
+
         # Display user message
         message_renderer.render_message({"role": "user", "content": prompt})
-        
+
         # Get response from backend
         response = backend_client.send_message(prompt, st.session_state.session_id)
-        
+
         # Save assistant response to session state
         SessionManager.add_message("assistant", response)
-        
+
         logger.info("어시스턴트 응답 저장 완료")
+
+
+# Application Entry Point
+def main():
+    """Main application entry point setting up pages and navigation"""
+    # Setup
+    config = Config()
+    logger = setup_logging()
+
+    # --- Common Elements Setup ---
+    # Configure page settings globally (applies to all pages)
+    UI.setup_page_config(config)
+    # Add custom CSS globally
+    UI.add_custom_css()
+    # Create the common sidebar elements (title, info, reset button, height detection)
+    # This function now primarily sets up the sidebar content and detects height.
+    UI.create_sidebar(config, logger)
+    # --- End Common Elements Setup ---
+
+
+    # --- Page Definition ---
+    # Define pages using st.Page
+    # Use a lambda to pass config and logger to the main app function
+    pages = [
+        Page(lambda: show_main_app(config, logger), title="Agent", icon="🤖"),
+        Page(config.about_page_path, title="About", icon="📄", default=True)
+    ]
+    # --- End Page Definition ---
+
+    # --- Navigation and Page Execution ---
+    # Create the navigation menu (renders in the sidebar automatically)
+    # and get the selected page object
+    pg = st.navigation(pages)
+
+    # Run the selected page's content
+    pg.run()
+    # --- End Navigation and Page Execution ---
+
 
 if __name__ == "__main__":
     main()

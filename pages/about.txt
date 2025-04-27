@@ -1,0 +1,416 @@
+## 1. 시스템 개요
+
+이 시스템은 수능 국어 지문을 출제하는 Multi-Agent입니다. LangGraph를 기반으로 에이전트 간 제어 흐름을 관리하고, FastAPI를 통해 에이전트의 출력을 실시간으로 스트리밍합니다.
+
+### 왜 멀티 에이전트로 접근했는가?
+
+수능 수준에 부합하는 독서 지문과 문항을 생성하는 것은 단일 LLM으로는 달성하기 어려운 복잡한 작업이었습니다.
+
+-   글의 정보 밀도가 높고 출제를 염두한 섬세한 사전 설계가 필요
+-   분야(인문/과학/사회 등)마다 다른 작문 스타일을 하나의 시스템 프롬프트로 구현하기 어려움
+-   레퍼런스를 제공하기 위해서는 사용자가 일일이 프롬프트에 삽입해야 함
+
+이러한 한계를 극복하기 위해 전문화된 에이전트들이 각자의 역할을 수행하며 협업하는 구조를 채택했습니다.
+
+## 2. 에이전트 아키텍처
+
+### 2.1 에이전트 구성 및 역할
+
+시스템은 5개의 전문화된 에이전트로 구성되어 있으며, 각 에이전트는 특정 작업에 특화되어 있습니다:
+
+| 에이전트         | 주요 역할                      | 사용 모델     |
+| -------------- | ------------------------------ | ------------- |
+| Supervisor     | 작업 흐름 조정 및 제어권 관리  | GPT-4.1       |
+| Researcher     | 정보 수집 및 개념 지도 작성    | GPT-4.1     |
+| Passage_editor | 개념 지도 기반 지문 작성       | Claude-3.7       |
+| Question_editor| 지문 기반 문항 및 선지 생성    | Claude-3.7    |
+| Validator      | 지문-문항 일관성 및 품질 검증 | GPT-4.1       |
+
+### 2.2 에이전트 간 협업 구조
+
+LangGraph 기반의 상태 그래프를 통해 에이전트 간 협업이 이루어집니다. 이 구조의 특징은:
+
+-   **중앙 집중형 제어**: Supervisor가 사용자와 직접 소통하며, 각 에이전트에 작업 제어권을 전달합니다. 다른 에이전트의 작업 후에는 항상 Supervisor에게 작업 제어권이 반환됩니다.
+    
+-   **상태 기반 작업 관리**: MultiAgentState라는 통합형 메세지 히스토리를 통해 모든 에이전트가 작업 진행 상황을 공유합니다.
+    
+-   **조건부 전환**: 작업 결과에 따라 Supervisor Agent가 다음 단계로 진행할지 결정하고, 이에 따라가 작업 순서가 결정되는 동적 워크플로우
+    
+
+이러한 구조를 통해 복잡한 작업을 모듈화하고, 각 모듈이 유동적으로 작동하는 구조를 구현할 수 있었습니다.
+
+## 3. 워크플로우: 지문 생성 프로세스
+
+지문 생성은 다음과 같은 단계로 진행됩니다:
+
+### 단계 1: 요청 분석 및 계획 수립
+
+Supervisor 에이전트가 사용자 요청(주제, 난이도 등)을 분석하고 전체 작업 계획을 수립합니다. 이 단계에서는:
+
+-   주제의 적합성 평가
+-   작업 분배 계획 수립
+-   전체 워크플로우 설계
+
+### 단계 2: 리서치 및 개념 지도 작성
+
+Supervisor의 지시에 따라 Researcher 에이전트가 활성화되어:
+
+-   검색 도구를 활용해 주제 관련 자료 수집
+-   핵심 개념과 개념 간 관계 분석
+-   수능 지문에 적합한 수준의 개념 지도(7번에서 서술) 초안 작성
+-   작업 완료 후 슈퍼바이저에게 제어권 반환
+
+### 단계 3: 지문 작성
+
+Supervisor가 Researcher의 결과물을 검토한 후 Passage_editor에게 제어권을 전달합니다. Passage_editor는:
+
+-   개념 지도를 바탕으로 논리적 구조의 독서 지문 작성
+-   수능 독서 지문 특유의 문체와 논리 전개 방식 적용
+-   적절한 정보 밀도와 어휘 수준 조절
+-   작업 완료 후 Supervisor에게 제어권 반환
+
+### 단계 4: 문항 생성
+
+Supervisor가 지문을 검토한 후 Question_editor에게 제어권을 전달합니다. Question_editor는:
+
+-   지문에 대한 심층 분석 수행
+-   다양한 유형(사실적 이해, 추론, 비판 등)의 문항 설계
+-   정답 및 오답 선지 작성
+-   문항 난이도 조절
+-   작업 완료 후 Supervisor에게 제어권 반환
+
+### 단계 5: 검증 및 최종화
+
+Supervisor가 지문과 문항을 Validator에게 전달합니다. Validator는:
+
+-   지문과 문항의 일관성 평가
+-   논리적 오류나 부정확한 정보 검출
+-   문항의 난이도와 변별력 평가
+-   개선 사항 제안
+-   작업 완료 후 Supervisor에게 제어권 반환
+
+### 단계 6: 최종 결과 전달
+
+Supervisor가 검증 결과를 검토하고 필요 시 수정을 지시한 후 최종 결과물을 사용자에게 전달합니다.
+
+## 4. 작업 통제권 제어
+
+### 4.1 작업 통제권 관리의 필요성
+
+각 에이전트가 언제 활성화되고 비활성화될지를 Handoff 도구를 통해 명확히 관리하고 있습니다. 이로 인해 다음과 같은 장점이 있습니다.
+
+-   에이전트 간 중복 작업 방지
+-   선형 워크플로우를 유지하여 작업 순서를 동기적으로 관리
+-   사용자가 작업 진행 상황을 명확하게 관찰 가능
+
+### 4.2 Supervisor의 Handoff 도구 사용
+
+LangGraph의 Command를 활용해 에이전트 간 제어 흐름을 관리했습니다. 제어권 전달은 다음과 같은 단계로 이루어집니다:
+
+1.  현재 활성된 에이전트가 작업 완료 후, LangGraph의 엣지 구조에 따라 자연스럽게 Supervisor에게 작업 통제권을 반환
+2.  작업 통제권을 이전해야 하는 경우, Supervisor는 Handoff 도구 사용
+3.  해당 에이전트에게 통제권을 이전하는 Command 객체 생성
+4.  StateGraph가 Command를 해석하여 대상 에이전트 활성화
+5.  새 에이전트의 작업 시작
+
+마치 릴레이 경주에서 바통을 전달하는 것과 유사합니다.
+
+```python
+@tool
+async def handoff_for_agent(
+    agent_name: Literal["validator", "passage_editor", "question_editor", "researcher"],
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+	):
+    """다른 에이전트에게 제어권을 전달하는 도구"""
+    message = ToolMessage(
+        content="당신은 다른 에이전트로부터 통제권을 부여받았습니다. 현재까지의 작업 결과를 검토하고 다음 단계를 진행하세요.",
+        tool_call_id=tool_call_id,
+    )
+    return Command(
+        goto=agent_name,
+        graph=Command.PARENT,
+        update={"messages": state["messages"] + [message]}
+    )
+
+```
+
+## 5. DB 검색 도구 부여
+
+수능 지문 생성의 품질을 높이기 위해, 기출 지문을 벡터 DB에 임베딩하고, 에이전트가 활용할 수 있는 검색 도구 `retrieve_data`를 구현했습니다. 인간이 자료를 검색하고 분석하는 과정과 유사하게끔 설계했으며, 검색을 통해 명확한 기출 레퍼런스를 제공합니다. 이를 통해 에이전트의 작업 품질을 크게 향상시킬 수 있었습니다.
+
+### 5.1 검색 시스템의 구조
+
+-   ChromaDB 기반 벡터 데이터베이스에 지문 세트를 임베딩
+-   `retrieve_date` 도구를 사용하여 동적으로 쿼리 생성
+-   벡터 유사도 기반 쿼리를 통해 의미 기반 검색 가능
+-   풍부한 메타데이터를 통한 필터링
+
+### 5.2 DB 메타데이터 구조화
+
+-   연도, 회차, 영역 등 기본 정보
+-   분야 및 세부 분야 분류
+-   문항 유형 및 난이도 정보
+-   주요 키워드 및 개념 구조 분류
+
+```python
+@tool
+async def retrieve_data(
+    query: str,
+    doc_type: Literal["passage", "question", "answer"] = None,
+    year: Optional[int] = None,
+    field: Optional[str] = None,
+    question_type: Optional[str] = None,
+    difficulty: Optional[str] = None,
+    keyword_match: Optional[List[str]] = None,
+    n_results: int = 3,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId]
+	):
+    """기출 DB에서 다양한 필터와 메타데이터를 활용해 검색하는 도구"""
+    # ChromaDB 클라이언트 초기화
+    client = chromadb.PersistentClient(path="DB/kice", settings=Settings(anonymized_telemetry=False))
+    collection = client.get_collection(
+        name = 'kice_database',
+        embedding_function=OpenAIEmbeddingFunction(
+            model_name="text-embedding-3-large",
+            api_key=os.environ.get("OPENAI_API_KEY")
+        )
+    )
+    
+    # 동적 필터링 조건 구성
+    where_filter = {}
+    if doc_type: where_filter["doc_type"] = doc_type
+    if year: where_filter["year"] = year
+    if field: where_filter["field"] = field
+    if question_type: where_filter["question_types"] = {"$contains": question_type}
+    if difficulty: where_filter["difficulty"] = difficulty
+    if keyword_match: where_filter["keywords"] = {"$contains": keyword_match}
+    
+    # 벡터 검색 실행
+    try:
+        results = collection.query(
+            query_texts=[query],
+            n_results=n_results,
+            where=where_filter if where_filter else None
+        )
+        
+        # 결과 포맷팅
+        formatted_results = []
+        for i, (doc, metadata, id, distance) in enumerate(zip(
+            results.get('documents', [[]])[0],
+            results.get('metadatas', [[]])[0],
+            results.get('ids', [[]])[0],
+            results.get('distances', [[]])[0]
+	        )):
+            formatted_results.append({
+                "rank": i+1,
+                "document": doc,
+                "metadata": metadata,
+                "id": id,
+                "relevance_score": 1 - distance  # 거리를 유사도 점수로 변환
+            })
+        
+        return formatted_results
+        
+    except Exception as e:
+        logger.error(f"검색 오류: {e}", exc_info=True)
+        return f"검색 중 오류 발생: {e}"
+
+```
+
+### 5.3 검색 프로세스
+
+LLM 에이전트는 다음과 같은 방식으로 검색 시스템을 활용합니다:
+
+1.  태스크 분석: 현재 작업에 필요한 정보 유형 파악
+2.  쿼리 구성: 효과적인 검색을 위한 쿼리 및 필터 설계, 검색 도구 호출
+3.  검색 실행: 검색 도구가 벡터 데이터베이스에 쿼리 전송, 자연어로 다시 임베딩
+4.  결과 분석: 검색 결과의 관련성과 유용성 평가
+5.  정보 통합: 유용한 정보를 현재 작업에 통합
+
+## 6. 서버-클라이언트 구조 및 스트리밍 방식
+
+### 6.1 서버-클라이언트 아키텍처
+
+시스템은 백엔드 서버와 프론트엔드 클라이언트로 구성된 분리된 아키텍처를 채택했습니다:
+
+-   **백엔드 서버 (FastAPI)**
+    
+    -   `StateGraph` 인스턴스 생성, 메모리 초기화
+    -   ChromaDB 클라이언트 초기화
+    -   LLM API 호출 처리
+    -   비동기 요청 처리
+    -   스트리밍 응답 생성, `/stream` 엔드포인트를 받아 전송
+
+
+-   **프론트엔드 클라이언트 (Streamlit)**
+    
+    -   사용자 인터페이스 제공
+    -   백엔드 서버와 통신
+    -   스트리밍 데이터 처리
+    -   생성된 지문과 문항은 전용 아티팩트에 따로 표시
+    -   세션 상태 관리(추후 백앤드 측 DB화 고려)
+
+
+### 6.2 실시간 스트리밍 메커니즘
+
+LLM 생성은 시간이 소요되는 작업이기 때문에, 사용자 경험 향상을 위해 SSE(Server-Sent Events) 기반 실시간 스트리밍 방식을 구현했습니다:
+
+-   **서버 측 구현**
+    
+    -   LangGraph의 `astream` 메서드를 활용한 비동기 스트리밍
+    -   에이전트별 출력 구분 및 메타데이터 포함
+    -   구조화된 JSON 형식으로 이벤트 전송
+    -   오류 처리 및 복구 메커니즘
+-   **클라이언트 측 구현**
+    
+    -   EventSource 객체를 통한 스트림 연결
+    -   메시지 유형별 처리(일반 메시지, 도구 호출, 오류 등)
+    -   에이전트별 출력을 분리하여 표시
+    -   스트리밍 중단 및 재연결 처리
+
+스트리밍 방식은 `astream` 메서드와 `stream_mode=messages`를 사용하여,토큰 단위로 스트리밍 및 파싱합니다.
+
+```python
+@app.post("/chat/stream")
+async def chat_stream_endpoint(request: ChatRequest):
+    async def event_generator():
+        async for item in stream_agent_response(request):
+            # item은 이미 JSON 문자열
+            #logger.info(f"전송된 청크:\n{item}")
+            yield item + "\n"  # iter_lines()가 줄 단위로 인식하도록
+    return StreamingResponse(
+        event_generator(),
+        media_type="application/json",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
+
+```
+
+## 7. 개념 지도 (Concept Map)
+
+### 7.1 개념 지도의 문제의식과 목적
+
+프로젝트의 핵심 과제는 LLM이 생성하는 콘텐츠의 논리적 밀도와 난이도를 효과적으로 통제하는 것이었습니다. 단순히 "더 어렵게 작성해 주세요" 또는 "논리적 밀도를 높여주세요"라는 프롬프트만으로는 원하는 수준의 출제 품질을 달성할 수 없었습니다.
+
+이 문제를 해결하기 위해, 지문의 논리적 구조를 명시적으로 표현하고 정량화할 수 있는 '개념 지도' 스키마를 개발했습니다. 개념 지도는 지문에 포함된 개념들(노드)과 그 개념 간의 논리적 관계(엣지)를 그래프 형태로 표현합니다.
+
+### 7.2 개념 지도의 구조
+
+개념 지도는 두 가지 핵심 요소로 구성됩니다:
+
+1.  **노드(Nodes)**: 지문에 등장하는 핵심 개념, 이론, 현상, 개체 등을 표현
+    
+    -   각 노드는 고유 ID, 레이블, 설명 등의 속성을 가짐
+    -   예: "의무론", "결과론", "자율주행 알고리즘", "면역 체계" 등
+2.  **엣지(Edges)**: 노드 간의 논리적 관계를 표현
+    
+    -   15가지 관계 유형과 27가지 세부 레이블로 체계화
+
+##### 엣지 유형 (일부)
+
+| 타입         | 핵심 논리                      | 레이블                             |
+| ------------ | ------------------------------ | -------------------------------- |
+| **계층/분류** | A가 B의 범주에 속함             | `belongs_to`                     |
+| **정의/설명** | A가 B로 정의됨                 | `defines`                        |
+| **구성/요소** | A가 B를 구성요소로 포함         | `has_part`                       |
+| **속성/특성** | A가 B라는 속성을 가짐           | `has_attribute`                  |
+| **비교/대조** | A와 B가 유사하거나 다름        | `is_similar_to`, `differs_from` |
+| **인과 관계** | A가 B의 원인이거나 영향을 줌 | `causes`, `influences`            |
+
+이러한 구조화된 표현을 통해, 텍스트의 논리적 복잡성을 정량적으로 설계하고 지시를 내릴 수 있게 됩니다.
+
+### 7.3 개념 지도를 활용한 정량적 프롬프트 및 결과물 분석
+
+개념 지도는 지문의 논리적 특성을 다양한 측면에서 정량화할 수 있는 기반을 제공합니다. 현재 다음과 같은 측정 및 분석 방법을 연구 중입니다:
+
+-   **정보 밀도 측정**: 노드 수와 엣지 수를 활용한 공식을 설계해 정보량을 나타내는 지표 개발
+-   **논리 복잡성 분석**: 엣지 유형별 비율과 노드 당 엣지 수 등을 활용하여 정보 밀도를 나타내는 지표 개발
+-   **난이도 예측 모델**: 특정 엣지 유형 및 패턴과 문항 난이도 간의 상관관계 분석을 통해 난이도를 나타내는 지표 개발
+-   **패턴 인식**: 수능 고난도 문항에서 자주 출현하는 논리 구조 패턴 식별
+
+위와 같은 지표들을 프롬프트 입력 시 활용함으로서, LLM에게 명시적인 논리 구조를 주문할 수 있습니다.
+
+> 프롬프트 예시: "노드 수가 최소 30, 엣지 수가 40, 엣지 유형은 4번 타입이 50% 이상 주를 이루도록 개념 지도를 설계해 줘."
+
+이러한 정량적 접근법은 지문의 논리적 특성을 객관적으로 측정하고, 원하는 수준의 난이도와 밀도를 갖춘 지문을 일관되게 생성하는 데 기여할 것으로 기대하고 있습니다.
+
+## 8. 시스템 효과성 및 개발 성과
+
+### 8.1 성과 측정
+
+-   **제작 시간 혁신**: 기존 수능 지문 제작 기간(약 2개월)을 약 5분으로 단축
+-   **비용 효율성**: 기존 제작 비용(세트당 약 200만원)을 API 비용(약 500원) 수준으로 절감
+-   **생성 품질**: 단일 LLM 대비 지문의 논리적 일관성 및 복잡성 크게 향상
+
+### 8.2 교육적 가치
+
+-   **맞춤형 학습 자료**: 개인별 학습 수준과 필요에 따른 콘텐츠 생성 가능
+-   **콘텐츠 다양화**: 교재 제작의 시간적, 비용적 제약 해소로 더 다양한 주제와 난이도 제공 가능
+-   **고품질 콘텐츠 접근성**: 비용 장벽 감소로 더 많은 학생에게 양질의 학습 자료 제공
+
+### 8.3 시장 잠재력
+
+-   **교육 기관 도입**: 강남대성학원 등 주요 교육기관과 도입 관련 논의 진행 중, 교육 스타트업과 협업 논의 중
+-   **에듀테크 통합**: 기존 학습 관리 시스템과의 통합, 기능 확장(예: 기출 해설)을 통한 학습 생태계 구축 가능성
+
+## 부록: 코드 예제
+
+### 에이전트 그래프 구성
+
+```python
+# 에이전트 그래프 구현 (graph_factory.py)
+def create_compiled_graph(memory):
+    # 에이전트 정의
+    supervisor_agent = create_react_agent(
+        model=Model_gpt4_1,
+        tools=[handoff_for_agent, prompt_for_subject_selection],
+        prompt=supervisor_prompt
+    )
+    
+    researcher_agent = create_react_agent(
+        model=Model_claude_3_7,
+        tools=[retrieve_data, prompt_for_humanities_writing],
+        prompt=researcher_prompt
+    )
+    
+    # 다른 에이전트들 정의...
+    
+    # 상태 그래프 구성
+    builder = StateGraph(MultiAgentState)
+    
+    # 노드 추가
+    builder.add_node("supervisor", supervisor_agent)
+    builder.add_node("researcher", researcher_agent)
+    builder.add_node("passage_editor", passage_editor_agent)
+    builder.add_node("question_editor", question_editor_agent)
+    builder.add_node("validator", validator_agent)
+    
+    # 기본 엣지 정의
+    builder.add_edge(START, "supervisor")
+    builder.add_edge("researcher", "supervisor")
+    builder.add_edge("passage_editor", "supervisor")
+    builder.add_edge("question_editor", "supervisor")
+    builder.add_edge("validator", "supervisor")
+    
+    # 조건부 엣지 정의
+    builder.add_conditional_edges(
+        "supervisor",
+        route_by_agent_decision,
+        {
+            "researcher": "researcher",
+            "passage_editor": "passage_editor",
+            "question_editor": "question_editor",
+            "validator": "validator",
+            "end": END
+        }
+    )
+    
+    # 그래프 컴파일
+    return builder.compile(checkpointer=memory)
+
+```
