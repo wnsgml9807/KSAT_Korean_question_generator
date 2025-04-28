@@ -13,6 +13,7 @@ except FileNotFoundError:
 except Exception as e:
     about_text = f"오류: 파일을 읽는 중 문제가 발생했습니다 - {e}"
 
+
 # 파일에서 읽어온 내용 표시
 st.title("Multi-Agent 기반 지문 생성 시스템")
 st.markdown("***2025-04-27 ver. 0.2.0***")
