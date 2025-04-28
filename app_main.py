@@ -661,7 +661,7 @@ def show_main_app(config, logger):
     # Handle user input
     if prompt := st.chat_input("ex) 인문 지문을 작성하고 싶어"):
         # Add user message to session state
-        SessionManager.add_message("user", prompt)
+        SessionManager.add_message("user", prompt, logger)
         # Display user message
         message_renderer.render_message({"role": "user", "content": prompt})
 
@@ -669,7 +669,7 @@ def show_main_app(config, logger):
         response = backend_client.send_message(prompt, st.session_state.session_id)
         
         # Save assistant response to session state
-        SessionManager.add_message("assistant", response)
+        SessionManager.add_message("assistant", response, logger)
 
         logger.info(f"""세션에 응답 저장됨""")
 
