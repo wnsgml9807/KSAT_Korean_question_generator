@@ -72,12 +72,14 @@ class SessionManager:
         logger.info("세션 상태 초기화 완료")
     
     @staticmethod
-    def add_message(role, content):
+    def add_message(role, content, logger):
         """Add a message to the session state"""
         if "messages" not in st.session_state:
             st.session_state.messages = []
         
         st.session_state.messages.append({"role": role, "content": content})
+        
+        logger.info(f"""세션에 저장된 응답 메세지:\n{content}""")
         
 # UI Components
 class UI:
@@ -119,6 +121,7 @@ class UI:
             line-height: 1.7em;
             letter-spacing: -0.01em;
             font-weight: 500;
+            margin-bottom: 1.5em;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -659,22 +662,16 @@ def show_main_app(config, logger):
     if prompt := st.chat_input("ex) 인문 지문을 작성하고 싶어"):
         # Add user message to session state
         SessionManager.add_message("user", prompt)
-        UI.create_sidebar(config, logger)
         # Display user message
         message_renderer.render_message({"role": "user", "content": prompt})
 
         # Get response from backend
         response = backend_client.send_message(prompt, st.session_state.session_id)
-        try:
-            if response:
-                logger.info(f"""응답:{response}""")
-        except Exception as e:
-            logger.info("응답이 없습니다.")
         
         # Save assistant response to session state
         SessionManager.add_message("assistant", response)
 
-        
+        logger.info(f"""세션에 응답 저장됨""")
 
 
 # Application Entry Point
