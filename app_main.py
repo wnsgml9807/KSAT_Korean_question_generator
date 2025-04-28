@@ -53,24 +53,37 @@ class SessionManager:
         if "session_id" not in st.session_state:
             st.session_state.session_id = f"session_{uuid.uuid4()}"
             logger.info(f"새 세션 ID 생성: {st.session_state.session_id}")
-    
+
+        # 뷰포트 높이 초기화 (세션에 없을 경우)
+        if "viewport_height" not in st.session_state:
+            st.session_state.viewport_height = 800 # 기본 높이 설정
+            logger.info(f"세션 상태에 'viewport_height' 초기화: {st.session_state.viewport_height}px")
+
     @staticmethod
     def reset_session(logger):
-        """Reset the session state"""
-        # Generate new session ID
-        st.session_state.session_id = f"session_{uuid.uuid4()}"
-        logger.info(f"세션 ID 재생성: {st.session_state.session_id}")
-        
+        """Reset the session state, preserving session_id and viewport_height"""
+        # Generate new session ID (already done, but just confirming logic)
+        # st.session_state.session_id = f"session_{uuid.uuid4()}"
+        # logger.info(f"세션 ID 재생성: {st.session_state.session_id}") # This might be needed if we want a *new* session ID on reset
+
+        # Get current session_id and viewport_height to preserve them
+        current_session_id = st.session_state.get("session_id")
+        current_viewport_height = st.session_state.get("viewport_height")
+        logger.info(f"세션 리셋 전: session_id={current_session_id}, viewport_height={current_viewport_height}")
+
         # Clear all other session state variables
         keys_to_clear = list(st.session_state.keys())
         for key in keys_to_clear:
-            if key != "session_id":  # Keep the newly generated session_id
+            # session_id 와 viewport_height 를 제외하고 모두 삭제
+            if key not in ["session_id", "viewport_height"]:
                 del st.session_state[key]
         
-        # Re-initialize necessary session variables
+        # Re-initialize necessary session variables (like messages)
         st.session_state.messages = []
-        logger.info("세션 상태 초기화 완료")
-    
+        logger.info("메시지 등 다른 세션 변수 초기화 완료 (session_id, viewport_height 유지됨)")
+        # If session_id needs to be regenerated on reset, uncomment the lines above
+        # And ensure the new session_id is kept here
+
     @staticmethod
     def add_message(role, content, logger):
         """Add a message to the session state"""
@@ -79,7 +92,10 @@ class SessionManager:
         
         st.session_state.messages.append({"role": role, "content": content})
         
-        logger.info(f"""세션에 저장된 응답 메세지:\n{content}""")
+        type_text = content.get("type", "")
+        content_text = content.get("content", "")
+        
+        logger.info(f"""세션에 저장된 응답 메세지:\ntype: {type_text}\ncontent: {content_text}""")
         
 # UI Components
 class UI:
@@ -129,7 +145,7 @@ class UI:
 
     @staticmethod
     def create_sidebar(config, logger):
-        """Create and populate the sidebar with common elements"""
+        """Create sidebar, detect screen height, and update session state."""
         with st.sidebar:
             st.title("수능 독서 출제용 Agent")
             st.write(f"Version {config.version}")
@@ -141,51 +157,41 @@ class UI:
                 """
             )
             
-            # Get screen data for responsive design - Restore this block
+            # --- 사이드바에서 높이 감지 및 세션 상태 업데이트 ---
             try:
                 screen_data = ScreenData()
-                stats = screen_data.st_screen_data()
+                stats = screen_data.st_screen_data() # 컴포넌트 로딩 및 값 가져오기
 
-                # None이 아닐 때만 세션 상태 업데이트
-                if stats is not None and "innerHeight" in stats:
+                if stats and "innerHeight" in stats:
                     height = stats.get("innerHeight")
-                    # 유효한 높이 값이면 세션 상태 업데이트
                     if height is not None and isinstance(height, (int, float)) and height > 0:
+                        # 세션 상태에 최신 높이 저장/업데이트
                         st.session_state.viewport_height = height
-                        #logger.info(f"뷰포트 높이 업데이트: {height}px") # Log update
-                    else: # Log invalid height received
-                        logger.warning(f"수신된 뷰포트 높이 값이 유효하지 않음: {height}")
-                else: # Log if stats is None or innerHeight is missing
-                     logger.warning(f"화면 통계에서 innerHeight를 찾을 수 없음: {stats}")
-
-
+                        # logger.info(f"사이드바에서 뷰포트 높이 업데이트: {height}px") # 필요시 로깅
+                    else:
+                        logger.warning(f"사이드바: 수신된 높이 값 유효하지 않음: {height}")
+                else:
+                     logger.warning(f"사이드바: innerHeight 찾을 수 없음: {stats}")
             except Exception as e:
-                logger.error(f"화면 데이터 얻기 실패: {str(e)}")
-                # 오류 발생 시에도 기존 세션 값이나 기본값 유지 시도
-                height = st.session_state.get("viewport_height", 800)
-                logger.info(f"화면 데이터 얻기 실패, 세션/기본 높이 사용: {height}px")
+                logger.error(f"사이드바: 화면 데이터 얻기 실패: {str(e)}")
+                # 오류 발생 시에도 세션 상태에 viewport_height가 없으면 기본값 설정
+                if "viewport_height" not in st.session_state:
+                     st.session_state.viewport_height = 800 # 기본값 설정
+                # logger.info(f"사이드바: 화면 데이터 얻기 실패, 현재 세션/기본 높이: {st.session_state.viewport_height}px")
 
-            # 항상 최신 세션 상태 값 사용 로그 (디버깅 도움)
-            current_height_in_state = st.session_state.get("viewport_height", 800)
-            #logger.info(f"현재 세션 뷰포트 높이: {current_height_in_state}px")
-            # create_sidebar no longer returns height, it just ensures session_state is updated.
+            # 현재 세션의 높이 값 확인 (디버깅용, 로깅 불필요 시 주석 처리)
+            # current_height_in_state = st.session_state.get("viewport_height", 800)
+            # logger.info(f"현재 세션 뷰포트 높이 (사이드바 로딩 시점): {current_height_in_state}px")
+            # --- --------------------------------------- ---
 
 
             # Session reset button
-            if st.button("🔄️ 세션 초기화"): # Button text simplified
-                # Store viewport height temporarily
-                viewport_height = st.session_state.get("viewport_height")
-
+            if st.button("🔄️ 세션 초기화"):
+                # 리셋 시 viewport_height는 SessionManager.reset_session에서 유지됨
                 SessionManager.reset_session(logger)
-
-                # Restore viewport height if it existed
-                if viewport_height is not None:
-                    st.session_state.viewport_height = viewport_height
-
-                st.success("세션이 초기화되었습니다. 페이지를 새로고침합니다.")
+                st.success("세션이 초기화되었습니다. (화면 높이 정보 유지됨)")
                 time.sleep(1)
                 st.rerun()
-            # Removed return height, sidebar content is common. Height is managed in session state.
     
     @staticmethod
     def create_layout(viewport_height):
@@ -641,14 +647,20 @@ class BackendClient:
 # Main Application Page Logic
 def show_main_app(config, logger):
     """Displays the main chat interface and handles interaction"""
-    # Calculate viewport height using session state value set in sidebar
-    viewport_height = UI.calculate_viewport_height(st.session_state.get("viewport_height", 800))
 
-    # Create layout for the main app page
-    chat_container, passage_placeholder, question_placeholder = UI.create_layout(viewport_height)
-
-    # Initialize session (ensures messages/session_id exist)
+    # Initialize session (ensures messages/session_id/viewport_height exist)
     SessionManager.initialize_session(logger)
+
+    # --- rerun 시 세션 상태에서 가장 최근 높이 값 사용 ---
+    # 사이드바에서 업데이트된 최신 'viewport_height' 값을 가져옴 (없으면 기본값 800)
+    latest_detected_height = st.session_state.get("viewport_height", 800)
+    # 가져온 값으로 레이아웃에 사용할 최종 높이 계산
+    viewport_height = UI.calculate_viewport_height(latest_detected_height)
+    # logger.info(f"메인 앱 레이아웃 계산에 사용될 뷰포트 높이: {viewport_height}px (세션 값: {latest_detected_height}px)") # 필요시 로깅
+    # --- --------------------------------------- ---
+
+    # Create layout for the main app page using the calculated viewport_height
+    chat_container, passage_placeholder, question_placeholder = UI.create_layout(viewport_height)
 
     # Create helpers
     message_renderer = MessageRenderer(chat_container, passage_placeholder, question_placeholder)
