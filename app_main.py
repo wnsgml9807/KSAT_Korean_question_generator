@@ -92,10 +92,16 @@ class SessionManager:
         
         st.session_state.messages.append({"role": role, "content": content})
         
-        type_text = content.get("type", "")
-        content_text = content.get("content", "")
+        try:
+            if isinstance(content, dict):
+                content_text = content.get("messages")[0].get("content", "")
+                type_text = content.get("messages")[0].get("type", "")
+                agent_text = content.get("messages")[0].get("agent", "")
+                logger.info(f"""\n세션에 저장된 응답 메세지:\ntype: {type_text}\nagent: {agent_text}\ncontent: {content_text}""")
+        except Exception:
+            pass
         
-        logger.info(f"""세션에 저장된 응답 메세지:\ntype: {type_text}\ncontent: {content_text}""")
+        
         
 # UI Components
 class UI:
