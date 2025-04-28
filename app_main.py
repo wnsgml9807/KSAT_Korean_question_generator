@@ -111,12 +111,12 @@ class UI:
             font-weight: 500;
         }
         .passage-font p {
-            text-indent: 1.5em; /* 각 문단의 첫 줄 들여쓰기 */
-            margin-bottom: 1.7em;
+            text-indent: 1em; /* 각 문단의 첫 줄 들여쓰기 */
+            margin-bottom: 0em;
         }
         .question-font {
             font-family: 'Nanum Myeongjo', serif !important;
-            line-height: 1em;
+            line-height: 1.7em;
             letter-spacing: -0.01em;
             font-weight: 500;
         }
@@ -659,7 +659,7 @@ def show_main_app(config, logger):
     if prompt := st.chat_input("ex) 인문 지문을 작성하고 싶어"):
         # Add user message to session state
         SessionManager.add_message("user", prompt)
-
+        UI.create_sidebar(config, logger)
         # Display user message
         message_renderer.render_message({"role": "user", "content": prompt})
 
