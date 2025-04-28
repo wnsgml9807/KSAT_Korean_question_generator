@@ -78,7 +78,7 @@ class SessionManager:
             st.session_state.messages = []
         
         st.session_state.messages.append({"role": role, "content": content})
-
+        
 # UI Components
 class UI:
     """UI component management"""
@@ -110,9 +110,13 @@ class UI:
             letter-spacing: -0.01em;
             font-weight: 500;
         }
+        .passage-font p {
+            text-indent: 1.5em; /* 각 문단의 첫 줄 들여쓰기 */
+            margin-bottom: 1.7em;
+        }
         .question-font {
             font-family: 'Nanum Myeongjo', serif !important;
-            line-height: 1.7;
+            line-height: 1em;
             letter-spacing: -0.01em;
             font-weight: 500;
         }
@@ -145,7 +149,7 @@ class UI:
                     # 유효한 높이 값이면 세션 상태 업데이트
                     if height is not None and isinstance(height, (int, float)) and height > 0:
                         st.session_state.viewport_height = height
-                        logger.info(f"뷰포트 높이 업데이트: {height}px") # Log update
+                        #logger.info(f"뷰포트 높이 업데이트: {height}px") # Log update
                     else: # Log invalid height received
                         logger.warning(f"수신된 뷰포트 높이 값이 유효하지 않음: {height}")
                 else: # Log if stats is None or innerHeight is missing
@@ -160,7 +164,7 @@ class UI:
 
             # 항상 최신 세션 상태 값 사용 로그 (디버깅 도움)
             current_height_in_state = st.session_state.get("viewport_height", 800)
-            logger.info(f"현재 세션 뷰포트 높이: {current_height_in_state}px")
+            #logger.info(f"현재 세션 뷰포트 높이: {current_height_in_state}px")
             # create_sidebar no longer returns height, it just ensures session_state is updated.
 
 
@@ -343,7 +347,7 @@ class BackendClient:
             # Initialize message data storage
             message_data = {"messages": []}
             
-            self.logger.info(f"백엔드 요청 전송 - 세션 ID: {session_id}, 프롬프트: {prompt[:50]}...")
+            self.logger.info(f"""백엔드 요청 전송됨\n세션 ID: {session_id}\n프롬프트:\n{prompt}""")
             
             try:
                 # Setup the API request
@@ -652,7 +656,7 @@ def show_main_app(config, logger):
         message_renderer.render_message(message)
 
     # Handle user input
-    if prompt := st.chat_input("질문을 입력하세요..."):
+    if prompt := st.chat_input("ex) 인문 지문을 작성하고 싶어"):
         # Add user message to session state
         SessionManager.add_message("user", prompt)
 
@@ -661,11 +665,16 @@ def show_main_app(config, logger):
 
         # Get response from backend
         response = backend_client.send_message(prompt, st.session_state.session_id)
-
+        try:
+            if response:
+                logger.info(f"""응답:{response}""")
+        except Exception as e:
+            logger.info("응답이 없습니다.")
+        
         # Save assistant response to session state
         SessionManager.add_message("assistant", response)
 
-        logger.info("어시스턴트 응답 저장 완료")
+        
 
 
 # Application Entry Point
