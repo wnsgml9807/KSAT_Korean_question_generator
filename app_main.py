@@ -207,8 +207,8 @@ class UI:
         
         # Chat container
         with chat_column:
-            chat_container = st.container(border=False, height=viewport_height)
-        
+            chat_container = st.container(border=True, height=viewport_height - 60)
+            response_status = st.status("에이전트 응답 완료", state="complete")
         # Artifact containers
         with artifact_column:
             passage_column, question_column = st.columns(2, vertical_alignment="top")
@@ -221,7 +221,7 @@ class UI:
                 with st.container(border=False, height=viewport_height):
                     question_placeholder = st.empty()
         
-        return chat_container, passage_placeholder, question_placeholder
+        return chat_container, passage_placeholder, question_placeholder, response_status
     
     @staticmethod
     def calculate_viewport_height(screen_height):
@@ -325,7 +325,7 @@ class MessageRenderer:
         else:
             # Check if index is within bounds
             if idx < len(placeholders):
-                with placeholders[idx].container(border=True):
+                with placeholders[idx].container(border=False):
                     st.markdown(item["content"], unsafe_allow_html=True)
             else:
                 st.markdown(item["content"], unsafe_allow_html=True)
@@ -346,18 +346,19 @@ class MessageRenderer:
 class BackendClient:
     """Handles communication with the backend API"""
     
-    def __init__(self, backend_url, chat_container, passage_placeholder, question_placeholder, logger):
+    def __init__(self, backend_url, chat_container, passage_placeholder, question_placeholder, logger, response_status):
         self.backend_url = backend_url
         self.chat_container = chat_container
         self.passage_placeholder = passage_placeholder
         self.question_placeholder = question_placeholder
         self.logger = logger
-    
+        self.response_status = response_status
+        
     def send_message(self, prompt, session_id):
         """Send a message to the backend and process streaming response"""
         with self.chat_container:
             # Create more placeholders for streaming content (increased from 50 to 100)
-            placeholders = [st.empty() for _ in range(100)]
+            placeholders = [st.empty() for _ in range(50)]
             
             # Initialize message data storage
             message_data = {"messages": []}
@@ -393,6 +394,10 @@ class BackendClient:
         artifact_type = "chat"
         has_ended = False  # 정상 종료 여부 추적
         
+        # 초기 상태 설정
+        with self.chat_container:
+            self.response_status.update(label="에이전트 응답 중...(최대 2분 소요)", state="running")
+        
         # for line in response.iter_lines(decode_unicode=True):
         #     if not line or not line.startswith("data: "):
         #         continue
@@ -422,8 +427,9 @@ class BackendClient:
                         current_text = ""  # 텍스트 초기화 (중요)
                     
                     # 종료 메시지 표시
-                    with placeholders[current_idx].container(border=False):
-                        st.success("에이전트의 응답이 종료되었습니다.")
+                    # with placeholders[current_idx].container(border=False):
+                    #     st.success("에이전트의 응답이 종료되었습니다.")
+                    self.response_status.update(label="에이전트의 응답이 종료되었습니다.", state="complete")
                     
                     message_data["messages"].append({
                         "type": "agent_change",
@@ -448,8 +454,7 @@ class BackendClient:
                         current_text = ""
                     
                     # 에러 메시지 표시
-                    with placeholders[current_idx].container(border=False):
-                        st.error(text)
+                    self.response_status.update(label="에러 발생 : " + text, state="error")
                     
                     message_data["messages"].append({
                         "type": "agent_change",
@@ -591,7 +596,7 @@ class BackendClient:
                 
         else:
             # For regular chat messages, just use a container
-            with placeholders[idx].container(border=True):
+            with placeholders[idx].container(border=False):
                 st.markdown(text, unsafe_allow_html=True)
     
     def _handle_json_error(self, error, line, placeholders, idx):
@@ -666,11 +671,11 @@ def show_main_app(config, logger):
     # --- --------------------------------------- ---
 
     # Create layout for the main app page using the calculated viewport_height
-    chat_container, passage_placeholder, question_placeholder = UI.create_layout(viewport_height)
+    chat_container, passage_placeholder, question_placeholder, response_status = UI.create_layout(viewport_height)
 
     # Create helpers
     message_renderer = MessageRenderer(chat_container, passage_placeholder, question_placeholder)
-    backend_client = BackendClient(config.backend_url, chat_container, passage_placeholder, question_placeholder, logger)
+    backend_client = BackendClient(config.backend_url, chat_container, passage_placeholder, question_placeholder, logger, response_status)
 
     # Display existing messages
     for message in st.session_state.messages:
