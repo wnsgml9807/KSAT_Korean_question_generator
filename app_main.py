@@ -248,7 +248,7 @@ class MessageRenderer:
             with self.chat_container:
                 with st.container(border=False):
                     # Create placeholders for streaming content
-                    placeholders = [st.empty() for _ in range(50)]
+                    placeholders = [st.empty() for _ in range(100)]
                     current_idx = 0
                 
                 # Process content
@@ -352,7 +352,7 @@ class BackendClient:
         """Send a message to the backend and process streaming response"""
         with self.chat_container:
             # Create more placeholders for streaming content (increased from 50 to 100)
-            placeholders = [st.empty() for _ in range(50)]
+            placeholders = [st.empty() for _ in range(100)]
             
             # Initialize message data storage
             message_data = {"messages": []}
@@ -423,7 +423,10 @@ class BackendClient:
                         current_idx += 1
                         current_text = ""  # 텍스트 초기화 (중요)
                         
-                    
+                    # 종료 메시지 표시
+                        with placeholders[current_idx].container(border=False):
+                            st.success("에이전트의 응답이 종료되었습니다.")
+                            
                     # 종료 메시지 표시
                     # with placeholders[current_idx].container(border=False):
                     #     st.success("에이전트의 응답이 종료되었습니다.")
