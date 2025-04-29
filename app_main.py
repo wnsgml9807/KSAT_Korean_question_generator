@@ -17,7 +17,7 @@ class Config:
         self.page_icon = "📚"
         self.layout = "wide"
         self.sidebar_state = "expanded"
-        self.version = "0.2.0"
+        self.version = "0.3.0"
         self.author = "권준희"
         self.contact = "wnsgml9807@naver.com"
         self.about_page_path = "pages/about.py" # Add path for about page
@@ -212,24 +212,29 @@ class UI:
         
         # Chat container
         with chat_column:
-            
-            chat_container = st.container(border=True, height=viewport_height - 60)
+            # 채팅 컨테이너 높이 설정 (전체 뷰포트 높이에서 약간의 여유분 제외)
+            chat_container = st.container(border=True, height=max(viewport_height - 60, 300)) 
             response_status = st.status("에이전트 응답 완료", state="complete")
+            
         # Artifact containers
         with artifact_column:
+            # welcome_placeholder 생성 제거
+            # welcome_placeholder = st.empty()
             
-            welcome_placeholder = st.empty()
             passage_column, question_column = st.columns(2, vertical_alignment="top")
             
+            # passage_placeholder를 담는 컨테이너에 높이 고정
             with passage_column:
-                with st.container(border=False):
+                with st.container(border=False, height=viewport_height): 
                     passage_placeholder = st.empty()
             
+            # question_placeholder를 담는 컨테이너에 높이 고정
             with question_column:
-                with st.container(border=False):
+                with st.container(border=False, height=viewport_height): 
                     question_placeholder = st.empty()
         
-        return chat_container, passage_placeholder, question_placeholder, response_status, welcome_placeholder
+        # welcome_placeholder 반환 제거
+        return chat_container, passage_placeholder, question_placeholder, response_status
     
     @staticmethod
     def calculate_viewport_height(screen_height):
@@ -695,7 +700,7 @@ def show_main_app(config, logger):
     def on_submit():
         """채팅 입력 제출 시 호출되는 콜백 함수"""
         st.session_state.is_streaming = True
-        # welcome_placeholder.empty() # 여기서 제거
+        # 콜백에서 플레이스홀더 비우기 제거
     
     # Initialize session (ensures messages/session_id/viewport_height exist)
     SessionManager.initialize_session(logger)
@@ -705,7 +710,7 @@ def show_main_app(config, logger):
     viewport_height = UI.calculate_viewport_height(latest_detected_height)
 
     # --- 레이아웃 생성 ---
-    chat_container, passage_placeholder, question_placeholder, response_status, welcome_placeholder = UI.create_layout(viewport_height)
+    chat_container, passage_placeholder, question_placeholder, response_status = UI.create_layout(viewport_height)
     
     # --- Helper 생성 ---
     message_renderer = MessageRenderer(chat_container, passage_placeholder, question_placeholder)
@@ -715,16 +720,18 @@ def show_main_app(config, logger):
     for message in st.session_state.messages:
         message_renderer.render_message(message)
 
-    # --- 환영 메시지 표시 (메시지 없을 시) ---
-    # 입력창보다 먼저 렌더링
+    # --- 환영 메시지 표시 (메시지 없을 시, passage_placeholder 활용) ---
     if not st.session_state.messages:
-        with welcome_placeholder.container():
+        with passage_placeholder.container():
             st.title("Welcome!")
             st.subheader(":thinking_face: 하단 입력창에 원하는 주제를 입력하세요.")
-            st.write("*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
-            st.write("*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
-            st.write("*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
-    
+            st.write("🎯*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
+            st.write("🎯*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
+            st.write("🎯*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
+            st.markdown("ver : 0.3.0")
+        # question_placeholder는 비워둠 (또는 다른 초기 내용 표시 가능)
+        # question_placeholder.empty() # 필요 시 주석 해제
+            
     # --- 채팅 입력창 ---
     prompt = st.chat_input(
         "ex) 인문 지문을 작성하고 싶어",
@@ -737,11 +744,9 @@ def show_main_app(config, logger):
         # 1. 사용자 메시지를 먼저 상태에 추가
         SessionManager.add_message("user", prompt)
         
-        # 2. 환영 메시지 플레이스홀더 지우기
-        # (welcome_placeholder가 None이 아닐 경우에만 실행)
-        if welcome_placeholder:
-             welcome_placeholder.empty()
-             logger.info("환영 메시지 플레이스홀더가 prompt 처리 시 제거되었습니다.")
+        # 2. 환영 메시지가 표시되었던 passage_placeholder 내용 지우기
+        if passage_placeholder: # 플레이스홀더가 None이 아닐 경우
+             passage_placeholder.empty()
 
         # 3. 사용자 메시지 렌더링
         message_renderer.render_message({"role": "user", "content": prompt})
