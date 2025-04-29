@@ -85,21 +85,12 @@ class SessionManager:
         # And ensure the new session_id is kept here
 
     @staticmethod
-    def add_message(role, content, logger):
+    def add_message(role, content):
         """Add a message to the session state"""
         if "messages" not in st.session_state:
             st.session_state.messages = []
         
         st.session_state.messages.append({"role": role, "content": content})
-        
-        try:
-            if isinstance(content, dict):
-                content_text = content.get("messages")[0].get("content", "")
-                type_text = content.get("messages")[0].get("type", "")
-                agent_text = content.get("messages")[0].get("agent", "")
-                logger.info(f"""\n세션에 저장된 응답 메세지:\ntype: {type_text}\nagent: {agent_text}\ncontent: {content_text}""")
-        except Exception:
-            pass
         
         
         
@@ -266,6 +257,9 @@ class MessageRenderer:
     def _process_assistant_content(self, content, placeholders, current_idx):
         """Process and render assistant message content"""
         # Parse content if it's a string
+        
+        logger = logging.getLogger(__name__)
+        
         if isinstance(content, str):
             try:
                 msg_data = json.loads(content)
@@ -301,6 +295,7 @@ class MessageRenderer:
                         if item_info == "end":
                             with placeholders[current_idx].container(border=False):
                                 st.success("에이전트의 응답이 종료되었습니다.")
+                                logger.info("에이전트의 응답이 종료되었습니다.")
                         elif item_info == "error":
                             with placeholders[current_idx].container(border=False):
                                 st.error(item_content)
@@ -346,14 +341,13 @@ class MessageRenderer:
 class BackendClient:
     """Handles communication with the backend API"""
     
-    def __init__(self, backend_url, chat_container, passage_placeholder, question_placeholder, logger, response_status):
+    def __init__(self, backend_url, chat_container, passage_placeholder, question_placeholder, response_status):
         self.backend_url = backend_url
         self.chat_container = chat_container
         self.passage_placeholder = passage_placeholder
         self.question_placeholder = question_placeholder
-        self.logger = logger
         self.response_status = response_status
-        
+        self.logger = logging.getLogger(__name__)
     def send_message(self, prompt, session_id):
         """Send a message to the backend and process streaming response"""
         with self.chat_container:
@@ -394,6 +388,8 @@ class BackendClient:
         artifact_type = "chat"
         has_ended = False  # 정상 종료 여부 추적
         
+        logger = logging.getLogger(__name__)
+        
         # 초기 상태 설정
         with self.chat_container:
             self.response_status.update(label="에이전트 응답 중...(최대 2분 소요)", state="running")
@@ -423,8 +419,10 @@ class BackendClient:
                             "content": current_text,
                             "agent": current_agent
                         })
+                        logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
                         current_idx += 1
                         current_text = ""  # 텍스트 초기화 (중요)
+                        
                     
                     # 종료 메시지 표시
                     # with placeholders[current_idx].container(border=False):
@@ -445,6 +443,8 @@ class BackendClient:
                     # 현재 텍스트가 있으면 저장
                     if current_text:
                         self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
+                        logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
+                        
                         message_data["messages"].append({
                             "type": "text",
                             "content": current_text,
@@ -469,6 +469,7 @@ class BackendClient:
                 if agent != current_agent:
                     # 현재 텍스트가 있으면 저장
                     if current_text:
+                        logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
                         self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
                         message_data["messages"].append({
                             "type": "text",
@@ -480,6 +481,7 @@ class BackendClient:
                     
                     # system 에이전트가 아닌 경우만 에이전트 변경 메시지 표시
                     if agent != "system":
+                        logger.info(f'에이전트 변경:{current_agent} to {agent}')
                         with placeholders[current_idx].container(border=False):
                             st.info(f"{agent} 에이전트에게 통제권을 전달합니다.")
                         
@@ -506,6 +508,7 @@ class BackendClient:
                     # 현재 텍스트가 있으면 저장
                     if current_text:
                         self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
+                        logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
                         message_data["messages"].append({
                             "type": "text",
                             "content": current_text,
@@ -537,6 +540,7 @@ class BackendClient:
         
         # 비정상 종료 시에만 현재 텍스트 저장 (정상 종료는 이미 처리됨)
         if not has_ended and current_text:
+            logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
             self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
             message_data["messages"].append({
                 "type": "text",
@@ -675,7 +679,7 @@ def show_main_app(config, logger):
 
     # Create helpers
     message_renderer = MessageRenderer(chat_container, passage_placeholder, question_placeholder)
-    backend_client = BackendClient(config.backend_url, chat_container, passage_placeholder, question_placeholder, logger, response_status)
+    backend_client = BackendClient(config.backend_url, chat_container, passage_placeholder, question_placeholder, response_status)
 
     # Display existing messages
     for message in st.session_state.messages:
@@ -684,7 +688,7 @@ def show_main_app(config, logger):
     # Handle user input
     if prompt := st.chat_input("ex) 인문 지문을 작성하고 싶어"):
         # Add user message to session state
-        SessionManager.add_message("user", prompt, logger)
+        SessionManager.add_message("user", prompt)
         # Display user message
         message_renderer.render_message({"role": "user", "content": prompt})
 
@@ -692,9 +696,7 @@ def show_main_app(config, logger):
         response = backend_client.send_message(prompt, st.session_state.session_id)
         
         # Save assistant response to session state
-        SessionManager.add_message("assistant", response, logger)
-
-        logger.info(f"""세션에 응답 저장됨""")
+        SessionManager.add_message("assistant", response)
 
 
 # Application Entry Point
