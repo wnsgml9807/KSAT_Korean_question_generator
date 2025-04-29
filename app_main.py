@@ -59,6 +59,15 @@ class SessionManager:
             st.session_state.viewport_height = 800 # 기본 높이 설정
             logger.info(f"세션 상태에 'viewport_height' 초기화: {st.session_state.viewport_height}px")
 
+        # 스트리밍 상태 플래그 초기화
+        if "is_streaming" not in st.session_state:
+            st.session_state.is_streaming = False
+            logger.info("세션 상태에 'is_streaming' 초기화: False")
+        
+        if "input" not in st.session_state:
+            st.session_state.input = None
+            logger.info("세션 상태에 'input' 초기화: None")
+
     @staticmethod
     def reset_session(logger):
         """Reset the session state, preserving session_id and viewport_height"""
@@ -80,6 +89,8 @@ class SessionManager:
         
         # Re-initialize necessary session variables (like messages)
         st.session_state.messages = []
+        # 스트리밍 상태도 리셋
+        st.session_state.is_streaming = False
         logger.info("메시지 등 다른 세션 변수 초기화 완료 (session_id, viewport_height 유지됨)")
         # If session_id needs to be regenerated on reset, uncomment the lines above
         # And ensure the new session_id is kept here
@@ -155,26 +166,29 @@ class UI:
             )
             
             # --- 사이드바에서 높이 감지 및 세션 상태 업데이트 ---
-            try:
-                screen_data = ScreenData()
-                stats = screen_data.st_screen_data() # 컴포넌트 로딩 및 값 가져오기
+            # 스트리밍 중이 아닐 때만 화면 크기 감지 실행
+            if not st.session_state.get("is_streaming", False):
+                try:
+                    screen_data = ScreenData()
+                    stats = screen_data.st_screen_data() # 컴포넌트 로딩 및 값 가져오기
 
-                if stats and "innerHeight" in stats:
-                    height = stats.get("innerHeight")
-                    if height is not None and isinstance(height, (int, float)) and height > 0:
-                        # 세션 상태에 최신 높이 저장/업데이트
-                        st.session_state.viewport_height = height
-                        # logger.info(f"사이드바에서 뷰포트 높이 업데이트: {height}px") # 필요시 로깅
+                    if stats and "innerHeight" in stats:
+                        height = stats.get("innerHeight")
+                        if height is not None and isinstance(height, (int, float)) and height > 0:
+                            # 세션 상태에 최신 높이 저장/업데이트 (현재 높이와 다를 경우에만 업데이트 고려 가능)
+                            if st.session_state.get("viewport_height") != height:
+                                st.session_state.viewport_height = height
+                                # logger.info(f"사이드바에서 뷰포트 높이 업데이트: {height}px") # 변경 시에만 로깅
+                        else:
+                            logger.warning(f"사이드바: 수신된 높이 값 유효하지 않음: {height}")
                     else:
-                        logger.warning(f"사이드바: 수신된 높이 값 유효하지 않음: {height}")
-                else:
-                     logger.warning(f"사이드바: innerHeight 찾을 수 없음: {stats}")
-            except Exception as e:
-                logger.error(f"사이드바: 화면 데이터 얻기 실패: {str(e)}")
-                # 오류 발생 시에도 세션 상태에 viewport_height가 없으면 기본값 설정
-                if "viewport_height" not in st.session_state:
-                     st.session_state.viewport_height = 800 # 기본값 설정
-                # logger.info(f"사이드바: 화면 데이터 얻기 실패, 현재 세션/기본 높이: {st.session_state.viewport_height}px")
+                         logger.warning(f"사이드바: innerHeight 찾을 수 없음: {stats}")
+                except Exception as e:
+                    logger.error(f"사이드바: 화면 데이터 얻기 실패: {str(e)}")
+                    # 오류 발생 시에도 세션 상태에 viewport_height가 없으면 기본값 설정
+                    if "viewport_height" not in st.session_state:
+                         st.session_state.viewport_height = 800 # 기본값 설정
+                    # logger.info(f"사이드바: 화면 데이터 얻기 실패, 현재 세션/기본 높이: {st.session_state.viewport_height}px")
 
             # 현재 세션의 높이 값 확인 (디버깅용, 로깅 불필요 시 주석 처리)
             # current_height_in_state = st.session_state.get("viewport_height", 800)
@@ -371,6 +385,8 @@ class BackendClient:
                 response.raise_for_status()
                 self.logger.info("백엔드 스트림 연결 성공")
                 
+                # 스트리밍 시작 시 플래그 설정
+                st.session_state.is_streaming = True
                 # Process streaming response
                 return self._process_stream(response, placeholders, message_data)
                 
@@ -378,7 +394,7 @@ class BackendClient:
                 return self._handle_request_error(e, placeholders, 0)
             except Exception as e:
                 return self._handle_generic_error(e, placeholders, 0)
-    
+
     
     def _process_stream(self, response, placeholders, message_data):
         """Process streaming response from backend"""
@@ -388,169 +404,175 @@ class BackendClient:
         artifact_type = "chat"
         has_ended = False  # 정상 종료 여부 추적
         
-        logger = logging.getLogger(__name__)
+        logger = logging.getLogger(__name__)        
         
-        # 초기 상태 설정
-        with self.chat_container:
-            self.response_status.update(label="에이전트 응답 중...(최대 2분 소요)", state="running")
-        
-        # for line in response.iter_lines(decode_unicode=True):
-        #     if not line or not line.startswith("data: "):
-        #         continue
-        for line in response.iter_lines(decode_unicode=True):
-            if not line:
-                continue
+        try:
+            # 초기 상태 설정
+            with self.chat_container:
+                self.response_status.update(label="에이전트 응답 중...(최대 2분 소요)", state="running")
             
-            try:
-                # Parse event data
-                #payload = self._parse_stream_line(line)
-                payload = json.loads(line)
-                msg_type = payload.get("type", "message")
-                text = payload.get("text", "")
-                agent = payload.get("response_agent", "unknown")
-                
-                # 스트림 종료 메시지 특별 처리 (서버는 항상 마지막에 type=end, agent=system 보냄)
-                if msg_type == "end" and agent == "system":
-                    # 현재 텍스트가 있으면 반드시 최종 업데이트 수행
-                    if current_text:
-                        self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                        message_data["messages"].append({
-                            "type": "text",
-                            "content": current_text,
-                            "agent": current_agent
-                        })
-                        logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
-                        current_idx += 1
-                        current_text = ""  # 텍스트 초기화 (중요)
-                        
-                    # 종료 메시지 표시
-                        with placeholders[current_idx].container(border=False):
-                            st.success("에이전트의 응답이 종료되었습니다.")
-                            
-                    # 종료 메시지 표시
-                    # with placeholders[current_idx].container(border=False):
-                    #     st.success("에이전트의 응답이 종료되었습니다.")
-                    self.response_status.update(label="에이전트의 응답이 종료되었습니다.", state="complete")
-                    
-                    message_data["messages"].append({
-                        "type": "agent_change",
-                        "agent": "system",
-                        "info": "end"
-                    })
-                    
-                    has_ended = True  # 정상 종료 표시
-                    break
-                
-                # 에러 메시지 처리
-                elif msg_type == "error":
-                    # 현재 텍스트가 있으면 저장
-                    if current_text:
-                        self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                        logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
-                        
-                        message_data["messages"].append({
-                            "type": "text",
-                            "content": current_text,
-                            "agent": current_agent
-                        })
-                        current_idx += 1
-                        current_text = ""
-                    
-                    # 에러 메시지 표시
-                    self.response_status.update(label="에러 발생 : " + text, state="error")
-                    
-                    message_data["messages"].append({
-                        "type": "agent_change",
-                        "agent": "system",
-                        "info": "error",
-                        "content": text
-                    })
-                    current_idx += 1
+            # for line in response.iter_lines(decode_unicode=True):
+            for line in response.iter_lines(decode_unicode=True):
+                if not line:
                     continue
                 
-                # 일반 에이전트 변경 처리
-                if agent != current_agent:
-                    # 현재 텍스트가 있으면 저장
-                    if current_text:
-                        logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
-                        self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                        message_data["messages"].append({
-                            "type": "text",
-                            "content": current_text,
-                            "agent": current_agent
-                        })
-                        current_idx += 1
-                        current_text = ""
+                try:
+                    # Parse event data
+                    #payload = self._parse_stream_line(line)
+                    payload = json.loads(line)
+                    msg_type = payload.get("type", "message")
+                    text = payload.get("text", "")
+                    agent = payload.get("response_agent", "unknown")
                     
-                    # system 에이전트가 아닌 경우만 에이전트 변경 메시지 표시
-                    if agent != "system":
-                        logger.info(f'에이전트 변경:{current_agent} to {agent}')
-                        with placeholders[current_idx].container(border=False):
-                            st.info(f"{agent} 에이전트에게 통제권을 전달합니다.")
+                    # 스트림 종료 메시지 특별 처리 (서버는 항상 마지막에 type=end, agent=system 보냄)
+                    if msg_type == "end" and agent == "system":
+                        # 현재 텍스트가 있으면 반드시 최종 업데이트 수행
+                        if current_text:
+                            self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
+                            message_data["messages"].append({
+                                "type": "text",
+                                "content": current_text,
+                                "agent": current_agent
+                            })
+                            logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
+                            current_idx += 1
+                            current_text = ""  # 텍스트 초기화 (중요)
+                            
+                        # 종료 메시지 표시
+                            with placeholders[current_idx].container(border=False):
+                                st.success("에이전트의 응답이 종료되었습니다.")
+                            
+                        # 종료 메시지 표시
+                        # with placeholders[current_idx].container(border=False):
+                        #     st.success("에이전트의 응답이 종료되었습니다.")
+                        self.response_status.update(label="에이전트의 응답이 종료되었습니다.", state="complete")
                         
                         message_data["messages"].append({
                             "type": "agent_change",
-                            "agent": agent,
-                            "info": "handoff"
+                            "agent": "system",
+                            "info": "end"
+                        })
+                        
+                        has_ended = True  # 정상 종료 표시
+                        break
+                    
+                    # 에러 메시지 처리
+                    elif msg_type == "error":
+                        # 현재 텍스트가 있으면 저장
+                        if current_text:
+                            self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
+                            logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
+                            # 에러 메시지 표시
+                            with placeholders[current_idx].container(border=False):
+                                st.error(text)
+                            # 이전 텍스트 저장
+                            message_data["messages"].append({
+                                "type": "text",
+                                "content": current_text,
+                                "agent": current_agent
+                            })
+                            current_idx += 1
+                            current_text = ""
+                        
+                        # 에러 메시지 표시
+                        self.response_status.update(label="에러 발생 : " + text, state="error")
+                        
+                        message_data["messages"].append({
+                            "type": "agent_change",
+                            "agent": "system",
+                            "info": "error",
+                            "content": text
                         })
                         current_idx += 1
+                        continue
                     
-                    current_agent = agent
-                
-                # 아티팩트 타입 결정
-                artifact_type = self._determine_artifact_type(agent)
-                
-                # 메시지 유형별 처리
-                if msg_type == "message":
-                    # 텍스트 누적
-                    current_text += text
-                    # 아티팩트 업데이트 (진행 중)
-                    self._update_artifact(current_text, artifact_type, placeholders, current_idx)
+                    # 일반 에이전트 변경 처리
+                    if agent != current_agent:
+                        # 현재 텍스트가 있으면 저장
+                        if current_text:
+                            logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
+                            self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
+                            message_data["messages"].append({
+                                "type": "text",
+                                "content": current_text,
+                                "agent": current_agent
+                            })
+                            current_idx += 1
+                            current_text = ""
+                        
+                        # system 에이전트가 아닌 경우만 에이전트 변경 메시지 표시
+                        if agent != "system":
+                            logger.info(f'에이전트 변경:{current_agent} to {agent}')
+                            with placeholders[current_idx].container(border=False):
+                                st.info(f"{agent} 에이전트에게 통제권을 전달합니다.")
+                            
+                            message_data["messages"].append({
+                                "type": "agent_change",
+                                "agent": agent,
+                                "info": "handoff"
+                            })
+                            current_idx += 1
+                        
+                        current_agent = agent
                     
-                elif msg_type == "tool":
-                    # 현재 텍스트가 있으면 저장
-                    if current_text:
-                        self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                        logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
+                    # 아티팩트 타입 결정
+                    artifact_type = self._determine_artifact_type(agent)
+                    
+                    # 메시지 유형별 처리
+                    if msg_type == "message":
+                        # 텍스트 누적
+                        current_text += text
+                        # 아티팩트 업데이트 (진행 중)
+                        self._update_artifact(current_text, artifact_type, placeholders, current_idx)
+                        
+                    elif msg_type == "tool":
+                        # 현재 텍스트가 있으면 저장
+                        if current_text:
+                            self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
+                            logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
+                            message_data["messages"].append({
+                                "type": "text",
+                                "content": current_text,
+                                "agent": current_agent
+                            })
+                            current_idx += 1
+                            current_text = ""
+                        
+                        # 도구 실행 결과 표시
+                        tool_name = payload.get("tool_name")
+                        with placeholders[current_idx].expander(f"🛠️ {tool_name} 도구를 사용합니다.", expanded=False):
+                            st.code(text)
+                        
+                        # 도구 실행 결과 저장
                         message_data["messages"].append({
-                            "type": "text",
-                            "content": current_text,
+                            "type": "tool",
+                            "name": tool_name,
+                            "content": text,
                             "agent": current_agent
                         })
                         current_idx += 1
-                        current_text = ""
                     
-                    # 도구 실행 결과 표시
-                    tool_name = payload.get("tool_name")
-                    with placeholders[current_idx].expander(f"🛠️ {tool_name} 도구를 사용합니다.", expanded=False):
-                        st.code(text)
-                    
-                    # 도구 실행 결과 저장
-                    message_data["messages"].append({
-                        "type": "tool",
-                        "name": tool_name,
-                        "content": text,
-                        "agent": current_agent
-                    })
+                except json.JSONDecodeError as e:
+                    self._handle_json_error(e, line, placeholders, current_idx)
                     current_idx += 1
-                
-            except json.JSONDecodeError as e:
-                self._handle_json_error(e, line, placeholders, current_idx)
-                current_idx += 1
-            except Exception as e:
-                self._handle_stream_error(e, placeholders, current_idx)
-                current_idx += 1
+                except Exception as e:
+                    self._handle_stream_error(e, placeholders, current_idx)
+                    current_idx += 1
+            
+            # 비정상 종료 시에만 현재 텍스트 저장 (정상 종료는 이미 처리됨)
+            if not has_ended and current_text:
+                logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
+                self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
+                message_data["messages"].append({
+                    "type": "text",
+                    "content": current_text,
+                    "agent": current_agent
+                })
         
-        # 비정상 종료 시에만 현재 텍스트 저장 (정상 종료는 이미 처리됨)
-        if not has_ended and current_text:
-            logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
-            self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-            message_data["messages"].append({
-                "type": "text",
-                "content": current_text,
-                "agent": current_agent
-            })
-        
+        finally:
+            # 스트리밍 종료 시 플래그 해제 (정상/오류 종료 모두)
+            st.session_state.is_streaming = False
+            logger.info("스트리밍 종료/중단, is_streaming = False")
         return message_data
     
     def _parse_stream_line(self, line):
@@ -666,6 +688,9 @@ class BackendClient:
 def show_main_app(config, logger):
     """Displays the main chat interface and handles interaction"""
 
+    def on_submit():
+        st.session_state.is_streaming = True
+    
     # Initialize session (ensures messages/session_id/viewport_height exist)
     SessionManager.initialize_session(logger)
 
@@ -688,8 +713,12 @@ def show_main_app(config, logger):
     for message in st.session_state.messages:
         message_renderer.render_message(message)
 
-    # Handle user input
-    if prompt := st.chat_input("ex) 인문 지문을 작성하고 싶어"):
+    prompt = st.chat_input(
+        "ex) 인문 지문을 작성하고 싶어",
+        disabled=st.session_state.is_streaming,
+        on_submit=on_submit)
+    
+    if prompt:
         # Add user message to session state
         SessionManager.add_message("user", prompt)
         # Display user message
@@ -700,8 +729,9 @@ def show_main_app(config, logger):
         
         # Save assistant response to session state
         SessionManager.add_message("assistant", response)
-
-
+        
+        st.rerun()
+        
 # Application Entry Point
 def main():
     """Main application entry point setting up pages and navigation"""
