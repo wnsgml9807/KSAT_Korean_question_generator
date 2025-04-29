@@ -212,21 +212,24 @@ class UI:
         
         # Chat container
         with chat_column:
+            
             chat_container = st.container(border=True, height=viewport_height - 60)
             response_status = st.status("에이전트 응답 완료", state="complete")
         # Artifact containers
         with artifact_column:
+            
+            welcome_placeholder = st.empty()
             passage_column, question_column = st.columns(2, vertical_alignment="top")
             
             with passage_column:
-                with st.container(border=False, height=viewport_height):
+                with st.container(border=False):
                     passage_placeholder = st.empty()
             
             with question_column:
-                with st.container(border=False, height=viewport_height):
+                with st.container(border=False):
                     question_placeholder = st.empty()
         
-        return chat_container, passage_placeholder, question_placeholder, response_status
+        return chat_container, passage_placeholder, question_placeholder, response_status, welcome_placeholder
     
     @staticmethod
     def calculate_viewport_height(screen_height):
@@ -687,51 +690,74 @@ class BackendClient:
 # Main Application Page Logic
 def show_main_app(config, logger):
     """Displays the main chat interface and handles interaction"""
-
+    
+    # 콜백 함수 정의 (show_main_app 내부) - 스트리밍 상태만 설정
     def on_submit():
+        """채팅 입력 제출 시 호출되는 콜백 함수"""
         st.session_state.is_streaming = True
+        # welcome_placeholder.empty() # 여기서 제거
     
     # Initialize session (ensures messages/session_id/viewport_height exist)
     SessionManager.initialize_session(logger)
 
     # --- rerun 시 세션 상태에서 가장 최근 높이 값 사용 ---
-    # 사이드바에서 업데이트된 최신 'viewport_height' 값을 가져옴 (없으면 기본값 800)
     latest_detected_height = st.session_state.get("viewport_height", 800)
-    # 가져온 값으로 레이아웃에 사용할 최종 높이 계산
     viewport_height = UI.calculate_viewport_height(latest_detected_height)
-    # logger.info(f"메인 앱 레이아웃 계산에 사용될 뷰포트 높이: {viewport_height}px (세션 값: {latest_detected_height}px)") # 필요시 로깅
-    # --- --------------------------------------- ---
 
-    # Create layout for the main app page using the calculated viewport_height
-    chat_container, passage_placeholder, question_placeholder, response_status = UI.create_layout(viewport_height)
-
-    # Create helpers
+    # --- 레이아웃 생성 ---
+    chat_container, passage_placeholder, question_placeholder, response_status, welcome_placeholder = UI.create_layout(viewport_height)
+    
+    # --- Helper 생성 ---
     message_renderer = MessageRenderer(chat_container, passage_placeholder, question_placeholder)
     backend_client = BackendClient(config.backend_url, chat_container, passage_placeholder, question_placeholder, response_status)
 
-    # Display existing messages
+    # --- 기존 메시지 표시 ---
     for message in st.session_state.messages:
         message_renderer.render_message(message)
 
+    # --- 환영 메시지 표시 (메시지 없을 시) ---
+    # 입력창보다 먼저 렌더링
+    if not st.session_state.messages:
+        with welcome_placeholder.container():
+            st.title("Welcome!")
+            st.subheader(":thinking_face: 하단 입력창에 원하는 주제를 입력하세요.")
+            st.write("*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
+            st.write("*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
+            st.write("*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
+    
+    # --- 채팅 입력창 ---
     prompt = st.chat_input(
         "ex) 인문 지문을 작성하고 싶어",
         disabled=st.session_state.is_streaming,
-        on_submit=on_submit)
+        on_submit=on_submit
+    )
     
+    # --- 프롬프트 처리 ---
     if prompt:
-        # Add user message to session state
+        # 1. 사용자 메시지를 먼저 상태에 추가
         SessionManager.add_message("user", prompt)
-        # Display user message
+        
+        # 2. 환영 메시지 플레이스홀더 지우기
+        # (welcome_placeholder가 None이 아닐 경우에만 실행)
+        if welcome_placeholder:
+             welcome_placeholder.empty()
+             logger.info("환영 메시지 플레이스홀더가 prompt 처리 시 제거되었습니다.")
+
+        # 3. 사용자 메시지 렌더링
         message_renderer.render_message({"role": "user", "content": prompt})
 
-        # Get response from backend
-        response = backend_client.send_message(prompt, st.session_state.session_id)
+        # 4. 백엔드 호출 및 응답 처리
+        try:
+            response = backend_client.send_message(prompt, st.session_state.session_id)
+            SessionManager.add_message("assistant", response)
+        except Exception as e:
+             logger.error(f"백엔드 호출 중 오류 발생: {e}", exc_info=True)
+             st.error(f"오류가 발생하여 응답을 처리할 수 없습니다: {e}")
         
-        # Save assistant response to session state
-        SessionManager.add_message("assistant", response)
-        
+        # 5. UI 업데이트를 위한 rerun
+        logger.info("프롬프트 처리 완료. UI 업데이트 위해 rerun 호출.")
         st.rerun()
-        
+
 # Application Entry Point
 def main():
     """Main application entry point setting up pages and navigation"""
@@ -754,8 +780,8 @@ def main():
     # Define pages using st.Page
     # Use a lambda to pass config and logger to the main app function
     pages = [
-        Page(lambda: show_main_app(config, logger), title="Agent", icon="🤖"),
-        Page(config.about_page_path, title="About", icon="📄", default=True)
+        Page(lambda: show_main_app(config, logger), title="Agent", icon="🤖", default=True),
+        Page(config.about_page_path, title="About", icon="📄")
     ]
     # --- End Page Definition ---
 
