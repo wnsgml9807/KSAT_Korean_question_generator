@@ -11,4 +11,4 @@ maxUploadSize = 500
 maxMessageSize = 500
 
 [runner]
-fastReruns = false
+fastReruns = true
