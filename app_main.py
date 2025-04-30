@@ -696,6 +696,15 @@ class BackendClient:
 def show_main_app(config, logger):
     """Displays the main chat interface and handles interaction"""
     
+    def welcome_message(passage_placeholder):
+        with passage_placeholder.container():
+            st.title("Welcome!")
+            st.subheader(":thinking_face: 하단 입력창에 원하는 주제를 입력하세요.")
+            st.write("🎯*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
+            st.write("🎯*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
+            st.write("🎯*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
+            st.markdown("ver : 0.3.0")
+        return passage_placeholder
     # 콜백 함수 정의 (show_main_app 내부) - 스트리밍 상태만 설정
     def on_submit():
         """채팅 입력 제출 시 호출되는 콜백 함수"""
@@ -722,15 +731,7 @@ def show_main_app(config, logger):
 
     # --- 환영 메시지 표시 (메시지 없을 시, passage_placeholder 활용) ---
     if not st.session_state.messages:
-        with passage_placeholder.container():
-            st.title("Welcome!")
-            st.subheader(":thinking_face: 하단 입력창에 원하는 주제를 입력하세요.")
-            st.write("🎯*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
-            st.write("🎯*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
-            st.write("🎯*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
-            st.markdown("ver : 0.3.0")
-        # question_placeholder는 비워둠 (또는 다른 초기 내용 표시 가능)
-        # question_placeholder.empty() # 필요 시 주석 해제
+        welcome_message(passage_placeholder)
             
     # --- 채팅 입력창 ---
     prompt = st.chat_input(
@@ -745,7 +746,7 @@ def show_main_app(config, logger):
         SessionManager.add_message("user", prompt)
         
         # 2. 환영 메시지가 표시되었던 passage_placeholder 내용 지우기
-        if passage_placeholder: # 플레이스홀더가 None이 아닐 경우
+        if passage_placeholder == welcome_message(passage_placeholder): # 환영 메시지가 표시되었던 passage_placeholder 내용 지우기
              passage_placeholder.empty()
 
         # 3. 사용자 메시지 렌더링
