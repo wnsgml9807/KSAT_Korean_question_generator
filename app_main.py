@@ -696,20 +696,21 @@ class BackendClient:
 def show_main_app(config, logger):
     """Displays the main chat interface and handles interaction"""
     
-    def welcome_message(passage_placeholder):
-        with passage_placeholder.container():
+    def welcome_message():
+        with st.container(border=False) as welcome_container:
             st.title("Welcome!")
             st.subheader(":thinking_face: 하단 입력창에 원하는 주제를 입력하세요.")
             st.write("🎯*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
             st.write("🎯*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
             st.write("🎯*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
             st.markdown("ver : 0.4.0")
-        return passage_placeholder
+            
+        return welcome_container
+    
     # 콜백 함수 정의 (show_main_app 내부) - 스트리밍 상태만 설정
     def on_submit():
         """채팅 입력 제출 시 호출되는 콜백 함수"""
         st.session_state.is_streaming = True
-        # 콜백에서 플레이스홀더 비우기 제거
     
     # Initialize session (ensures messages/session_id/viewport_height exist)
     SessionManager.initialize_session(logger)
@@ -731,7 +732,11 @@ def show_main_app(config, logger):
 
     # --- 환영 메시지 표시 (메시지 없을 시, passage_placeholder 활용) ---
     if not st.session_state.messages:
-        welcome_message(passage_placeholder)
+        with passage_placeholder:
+            welcome_message()
+    else:
+        with passage_placeholder:
+            st.empty()
             
     # --- 채팅 입력창 ---
     prompt = st.chat_input(
@@ -742,12 +747,10 @@ def show_main_app(config, logger):
     
     # --- 프롬프트 처리 ---
     if prompt:
+        st.session_state.is_streaming = True
+        
         # 1. 사용자 메시지를 먼저 상태에 추가
         SessionManager.add_message("user", prompt)
-        
-        # 2. 환영 메시지가 표시되었던 passage_placeholder 내용 지우기
-        if passage_placeholder == welcome_message(passage_placeholder): # 환영 메시지가 표시되었던 passage_placeholder 내용 지우기
-             passage_placeholder.empty()
 
         # 3. 사용자 메시지 렌더링
         message_renderer.render_message({"role": "user", "content": prompt})
@@ -756,6 +759,7 @@ def show_main_app(config, logger):
         try:
             response = backend_client.send_message(prompt, st.session_state.session_id)
             SessionManager.add_message("assistant", response)
+            st.session_state.is_streaming = False
         except Exception as e:
              logger.error(f"백엔드 호출 중 오류 발생: {e}", exc_info=True)
              st.error(f"오류가 발생하여 응답을 처리할 수 없습니다: {e}")
