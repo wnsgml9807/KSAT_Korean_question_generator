@@ -417,7 +417,7 @@ class BackendClient:
         try:
             # 초기 상태 설정
             with self.chat_container:
-                self.response_status.update(label="에이전트 응답 중...(2분 초과 시 새로고침 하세요)", state="running")
+                self.response_status.update(label="에이전트 응답 중...(2분 초과 시 새로고침하세요)", state="running")
             
             # for line in response.iter_lines(decode_unicode=True):
             for line in response.iter_lines(decode_unicode=True):
