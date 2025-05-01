@@ -357,7 +357,8 @@ class MessageRenderer:
             with placeholders[idx].expander(f"📊 개념 지도", expanded=True):
                 # streamlit-mermaid 라이브러리 사용 (상단에 import 되어 있음)
                 mermaid_key = f"mermaid_render_{uuid.uuid4()}"  # 고유한 키 생성
-                stmd.st_mermaid(item["content"], height=500, width=500, key=mermaid_key)
+                stmd.st_mermaid(item["content"], key=mermaid_key)
+                
         elif tool_name in ["handoff_for_agent", "handoff_for_supervisor"]:
             # Display handoffs in borderless container
             with placeholders[idx].container(border=False):
@@ -562,7 +563,7 @@ class BackendClient:
                             with placeholders[current_idx].expander(f"📊 개념 지도", expanded=True):
                                 # streamlit-mermaid 라이브러리 사용 (상단에 import 되어 있음)
                                 mermaid_key = f"mermaid_render_{uuid.uuid4()}"  # 고유한 키 생성
-                                stmd.st_mermaid(text, height=500, width=500, key=mermaid_key)
+                                stmd.st_mermaid(text, key=mermaid_key)
                         else:
                             with placeholders[current_idx].expander(f"🛠️ {tool_name} 도구를 사용합니다.", expanded=False):
                                 st.code(text)
@@ -747,12 +748,9 @@ def show_main_app(config, logger):
         message_renderer.render_message(message)
 
     # --- 환영 메시지 표시 (메시지 없을 시, passage_placeholder 활용) ---
-    if not st.session_state.messages:
+    if not passage_placeholder:
         with passage_placeholder:
             welcome_message()
-    else:
-        with passage_placeholder:
-            st.empty()
             
     # --- 채팅 입력창 ---
     prompt = st.chat_input(
