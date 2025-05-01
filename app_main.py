@@ -709,10 +709,16 @@ class BackendClient:
             
         return error_msg
 
+
 # Main Application Page Logic
 def show_main_app(config, logger):
     """Displays the main chat interface and handles interaction"""
-        
+    
+    # show_main_app 함수 내에 임시 디버깅 코드 추가
+    with st.sidebar:
+        st.write(f"메시지 수: {len(st.session_state.messages)}")
+        st.write(f"스트리밍 중: {st.session_state.is_streaming}")
+    
     # 콜백 함수 정의 (show_main_app 내부) - 스트리밍 상태만 설정
     def on_submit():
         """채팅 입력 제출 시 호출되는 콜백 함수"""
@@ -728,19 +734,22 @@ def show_main_app(config, logger):
     # --- 레이아웃 생성 ---
     chat_container, passage_placeholder, question_placeholder, response_status = UI.create_layout(viewport_height)
     
+    
     # --- Helper 생성 ---
     message_renderer = MessageRenderer(chat_container, passage_placeholder, question_placeholder)
     backend_client = BackendClient(config.backend_url, chat_container, passage_placeholder, question_placeholder, response_status)
 
-    # --- 환영 메시지 표시 (메시지 없을 시, passage_placeholder 활용) ---
-    with passage_placeholder:
-        st.title("Welcome!")
-        st.subheader(":thinking_face: 하단 입력창에 원하는 주제를 입력하세요.")
-        st.write("🎯*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
-        st.write("🎯*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
-        st.write("🎯*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
-        st.markdown("ver : 0.4.0")
-
+    # 첫 메시지일 경우, 환영 메시지 표시
+    if len(st.session_state.messages) == 0:
+        with passage_placeholder.container():
+            st.title("Welcome!")
+            st.subheader(":thinking_face: 하단 입력창에 원하는 주제를 입력하세요.")
+            st.markdown("🎯*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
+            st.markdown("🎯*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
+            st.markdown("🎯*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
+            st.markdown("ver : 0.4.0")
+    
+    
     # --- 기존 메시지 표시 ---
     for message in st.session_state.messages:
         message_renderer.render_message(message)
