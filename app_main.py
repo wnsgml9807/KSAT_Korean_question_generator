@@ -7,6 +7,7 @@ import requests
 import json
 import re
 import time
+import streamlit_mermaid as stmd  # 머메이드 라이브러리 추가
 from streamlit import Page # Import Page
 
 # Configuration class for app settings
@@ -350,7 +351,14 @@ class MessageRenderer:
     def _render_tool_item(self, item, placeholders, idx):
         """Render tool execution results"""
         tool_name = item.get("name", "도구 실행 결과")
-        if tool_name in ["handoff_for_agent", "handoff_for_supervisor"]:
+        
+        # mermaid_tool 특별 처리
+        if tool_name == "mermaid_tool":
+            with placeholders[idx].expander(f"📊 개념 지도", expanded=True):
+                # streamlit-mermaid 라이브러리 사용 (상단에 import 되어 있음)
+                mermaid_key = f"mermaid_render_{uuid.uuid4()}"  # 고유한 키 생성
+                stmd.st_mermaid(item["content"], height=500, width=500, key=mermaid_key)
+        elif tool_name in ["handoff_for_agent", "handoff_for_supervisor"]:
             # Display handoffs in borderless container
             with placeholders[idx].container(border=False):
                 st.markdown(item["content"])
@@ -548,8 +556,16 @@ class BackendClient:
                         
                         # 도구 실행 결과 표시
                         tool_name = payload.get("tool_name")
-                        with placeholders[current_idx].expander(f"🛠️ {tool_name} 도구를 사용합니다.", expanded=False):
-                            st.code(text)
+                        
+                        # mermaid_tool 특별 처리
+                        if tool_name == "mermaid_tool":
+                            with placeholders[current_idx].expander(f"📊 개념 지도", expanded=True):
+                                # streamlit-mermaid 라이브러리 사용 (상단에 import 되어 있음)
+                                mermaid_key = f"mermaid_render_{uuid.uuid4()}"  # 고유한 키 생성
+                                stmd.st_mermaid(text, height=500, width=500, key=mermaid_key)
+                        else:
+                            with placeholders[current_idx].expander(f"🛠️ {tool_name} 도구를 사용합니다.", expanded=False):
+                                st.code(text)
                         
                         # 도구 실행 결과 저장
                         message_data["messages"].append({
