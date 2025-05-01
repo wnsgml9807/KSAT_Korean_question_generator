@@ -714,10 +714,6 @@ class BackendClient:
 def show_main_app(config, logger):
     """Displays the main chat interface and handles interaction"""
     
-    # show_main_app 함수 내에 임시 디버깅 코드 추가
-    with st.sidebar:
-        st.write(f"메시지 수: {len(st.session_state.messages)}")
-        st.write(f"스트리밍 중: {st.session_state.is_streaming}")
     
     # 콜백 함수 정의 (show_main_app 내부) - 스트리밍 상태만 설정
     def on_submit():
