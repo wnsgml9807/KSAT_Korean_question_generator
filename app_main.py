@@ -17,7 +17,7 @@ class Config:
         self.page_icon = "📚"
         self.layout = "wide"
         self.sidebar_state = "expanded"
-        self.version = "0.3.0"
+        self.version = "0.4.0"
         self.author = "권준희"
         self.contact = "wnsgml9807@naver.com"
         self.about_page_path = "pages/about.py" # Add path for about page
@@ -703,7 +703,7 @@ def show_main_app(config, logger):
             st.write("🎯*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
             st.write("🎯*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
             st.write("🎯*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
-            st.markdown("ver : 0.3.0")
+            st.markdown("ver : 0.4.0")
         return passage_placeholder
     # 콜백 함수 정의 (show_main_app 내부) - 스트리밍 상태만 설정
     def on_submit():
