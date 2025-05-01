@@ -732,20 +732,19 @@ def show_main_app(config, logger):
     message_renderer = MessageRenderer(chat_container, passage_placeholder, question_placeholder)
     backend_client = BackendClient(config.backend_url, chat_container, passage_placeholder, question_placeholder, response_status)
 
+    # --- 환영 메시지 표시 (메시지 없을 시, passage_placeholder 활용) ---
+    with passage_placeholder:
+        st.title("Welcome!")
+        st.subheader(":thinking_face: 하단 입력창에 원하는 주제를 입력하세요.")
+        st.write("🎯*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
+        st.write("🎯*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
+        st.write("🎯*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
+        st.markdown("ver : 0.4.0")
+
     # --- 기존 메시지 표시 ---
     for message in st.session_state.messages:
         message_renderer.render_message(message)
 
-    # --- 환영 메시지 표시 (메시지 없을 시, passage_placeholder 활용) ---
-    if passage_placeholder is None:
-        with passage_placeholder:
-            st.title("Welcome!")
-            st.subheader(":thinking_face: 하단 입력창에 원하는 주제를 입력하세요.")
-            st.write("🎯*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
-            st.write("🎯*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
-            st.write("🎯*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
-            st.markdown("ver : 0.4.0")
-            
     # --- 채팅 입력창 ---
     prompt = st.chat_input(
         "ex) 인문 지문을 작성하고 싶어",
