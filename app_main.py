@@ -712,18 +712,7 @@ class BackendClient:
 # Main Application Page Logic
 def show_main_app(config, logger):
     """Displays the main chat interface and handles interaction"""
-    
-    def welcome_message():
-        with st.container(border=False) as welcome_container:
-            st.title("Welcome!")
-            st.subheader(":thinking_face: 하단 입력창에 원하는 주제를 입력하세요.")
-            st.write("🎯*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
-            st.write("🎯*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
-            st.write("🎯*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
-            st.markdown("ver : 0.4.0")
-            
-        return welcome_container
-    
+        
     # 콜백 함수 정의 (show_main_app 내부) - 스트리밍 상태만 설정
     def on_submit():
         """채팅 입력 제출 시 호출되는 콜백 함수"""
@@ -748,9 +737,14 @@ def show_main_app(config, logger):
         message_renderer.render_message(message)
 
     # --- 환영 메시지 표시 (메시지 없을 시, passage_placeholder 활용) ---
-    if not passage_placeholder:
+    if passage_placeholder is None:
         with passage_placeholder:
-            welcome_message()
+            st.title("Welcome!")
+            st.subheader(":thinking_face: 하단 입력창에 원하는 주제를 입력하세요.")
+            st.write("🎯*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
+            st.write("🎯*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
+            st.write("🎯*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
+            st.markdown("ver : 0.4.0")
             
     # --- 채팅 입력창 ---
     prompt = st.chat_input(
