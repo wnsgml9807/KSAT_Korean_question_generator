@@ -713,8 +713,7 @@ class BackendClient:
 # Main Application Page Logic
 def show_main_app(config, logger):
     """Displays the main chat interface and handles interaction"""
-    
-    
+       
     # 콜백 함수 정의 (show_main_app 내부) - 스트리밍 상태만 설정
     def on_submit():
         """채팅 입력 제출 시 호출되는 콜백 함수"""
@@ -743,6 +742,7 @@ def show_main_app(config, logger):
             st.markdown("🎯*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
             st.markdown("🎯*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
             st.markdown("🎯*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
+            st.markdown(" ")
             st.markdown("ver : 0.4.0")
     
     

@@ -1,0 +1,281 @@
+---
+
+### 4️⃣ 세부 기술 구현
+
+#### LangGraph 선택 배경
+
+수능 지문 생성은 여러 단계의 복잡한 작업이 순차적으로 이루어져야 합니다. 초기에는 단일 LLM을 사용한 접근법도 고려했으나, 다음과 같은 한계에 직면했습니다:
+```
+1. 토큰 제한에 빠르게 도달 - 수능 지문 생성에 필요한 모든 지시와 컨텍스트가 16K 토큰을 쉽게 초과
+2. 역할 혼란 - 하나의 모델이 연구자, 작가, 검토자 역할을 번갈아 수행하며 일관성 상실
+3. 전문성 결여 - 전체 태스크를 한 번에 처리하려다 보니 각 단계별 품질이 저하
+```
+LangGraph는 이러한 문제들을 해결할 수 있는 최적의 프레임워크였습니다:
+
+> **State 관리의 효율성** : LangChain의 단순 체인과 달리, LangGraph는 복잡한 상태를 그래프 노드 간에 유지하고 전달할 수 있어 여러 에이전트가 협업하기에 이상적입니다.
+>
+> **유연한 워크플로우** : 조건부 경로와 순환 가능한 그래프 구조를 통해 "검증 실패 → 재작업" 같은 복잡한 워크플로우를 자연스럽게 구현할 수 있습니다.
+>
+> **체크포인팅** : 내장된 체크포인트 기능을 내장하여, 장시간 실행 과정에서 발생할 수 있는 오류나 중단으로부터 상대적으로 안전합니다.
+
+```python
+# graph_factory.py 중 일부
+builder = StateGraph(MultiAgentState)
+
+builder.add_node("researcher", researcher_agent)
+builder.add_node("architecture", architecture_agent)
+...
+builder.add_conditional_edges(
+    "validator",
+    lambda s: ("END" if s["validation_ok"] else "architecture")
+)
+graph = builder.compile()
+```
+
+#### LLM 모델 선택
+
+각 태스크의 특성에 맞게 최적화된 LLM 모델을 사용했습니다.
+
+실제 테스트 결과, Claude는 문체와 깊이 있는 내용 생성에 강점을 보였고, Gemini는 분석과 문항 생성의 속도에서 우위를 보였습니다. 
+
+이러한 모델 조합을 통해 품질과 비용 효율성 모두를 확보할 수 있었습니다.
+
+| 에이전트 | 사용 모델 | 선택 이유 |
+|---------|---------|----------|
+| **Supervisor** | ```GPT-4.1``` | • 지시사항을 정확히 이해하고 따르는 능력(instruction following)이 탁월함<br>• 사용자 친화적인 어조로 소통하며 작업 흐름을 조율<br>• 복잡한 작업 흐름을 관리하는 능력이 뛰어남 |
+| **Passage Editor** | ```Claude-3.7``` | • 한국어 문체가 자연스럽고 수능 지문 스타일의 고품질 텍스트 생성<br>• 복잡한 개념도 논리적 구조를 유지하며 1,700자 내외로 압축하는 능력 탁월<br>• 내적 일관성이 높은 지문 작성 가능 |
+| **Question Editor & Validator** | ```Gemini-2.5 Flash``` | • 빠른 응답 속도로 지문을 분석하고 문항 생성<br>• 수학적/논리적 관계 파악에 강점, 선지 간 변별력 체크에 효과적<br>• 비용 효율적이라 반복적 검증 과정에 적합 |
+  
+
+
+```python
+passage_editor_agent = create_react_agent(
+    model=Model_anthropic_3_7,
+    tools=passage_editor_tools,
+    prompt=passage_prompt  # 세부 지침 포함
+)
+```
+
+#### 에이전트 간 작업 통제권 전환 메커니즘
+
+초기 버전에서는 에이전트 간 전환을 위해 LangGraph의 조건부 엣지를 이용했습니다. 그러나 이는 다음과 같은 문제를 야기했습니다:
+
+```
+1. 확장성 한계 - 새 에이전트 추가 시, 분기 로직과 코드를 일일이 수정해야 함
+2. 복잡한 상태 관리 - 누가 다음에 실행될지 추적하는 로직이 복잡해짐
+3. 유연성 부족 - 실행 중 워크플로우 변경이 어려움
+```
+
+이를 해결하기 위해 Command 객체를 활용한 핸드오프 도구를 활용했습니다:
+
+```python
+@tool
+async def handoff_for_agent(
+    agent_name: Literal[
+        "researcher","architecture","passage_editor",
+        "question_editor","validator","end"
+    ],
+    state: Annotated[dict, InjectedState],
+    tool_call_id: InjectedToolCallId,
+):
+    """다음 단계로 통제권을 넘깁니다."""
+    message = ToolMessage(
+        content="통제권이 넘어왔습니다. 지금까지의 내용을 확인하고 당신의 역할을 수행하세요.",
+        tool_call_id=tool_call_id,
+    )
+    return Command(
+        goto=("END" if agent_name=="end" else agent_name),
+        graph=Command.PARENT,
+        update={"messages": state["messages"] + [message]},
+    )
+```
+
+이 접근법의 가장 큰 장점은 간단한 프롬프트 수정만으로 워크플로우 변경이 가능하다는 점입니다.
+
+코드 한 줄 수정 없이, Supervisor의 프롬프트만 변경하면 새로운 워크플로우가 적용됩니다.
+
+#### ChromaDB 선택 이유와 임베딩 전략
+
+LLM이 기출 문제를 능동적으로 검색할 수 있는 시스템을 구축하기 위해 여러 벡터 데이터베이스 옵션을 검토했습니다:
+
+> 검토한 벡터 DB 후보:
+> - Pinecone: 관리형 서비스, 확장성 우수
+> - Milvus: 고성능 분산 처리 가능
+> - ChromaDB: 경량화, 로컬 실행 가능, Python 통합 우수
+
+
+최종적으로 ChromaDB를 선택한 이유는 다음과 같습니다:
+
+1. **로컬 디플로이먼트**: 서버리스 환경에서도 SQLite 백엔드로 완전히 작동하여 외부 의존성 최소화
+
+2. **메타데이터 필터링**: 연도, 월, 영역 등의 복합 필터링을 where 절로 간단히 구현 가능
+
+3. **임베딩 유연성**: 다양한 임베딩 모델을 쉽게 교체할 수 있는 아키텍처 지원
+
+한국어 텍스트 임베딩을 위해 여러 모델을 벤치마크한 결과, OpenAI의 text-embedding-3-large가 한글 수능 지문의 의미적 유사성을 가장 정확히 포착하는 것으로 확인되어 채택했습니다.
+
+```python
+results = collection.query(
+    query_texts=[query],
+    n_results=n_results,
+    where={"year": year, "field": field} or None
+)
+```
+
+```python
+results = collection.query(
+    query_texts=[query],
+    n_results=n_results,
+    where={"year": year, "field": field} or None
+)
+```
+
+#### 토큰·요약 관리의 비용 효율적 접근
+
+AI 모델의 컨텍스트 제한과 비용 문제를 해결하기 위해, 일반적으로 사용되는 요약 모델 접근법 대신 독창적인 "절삭+주입" 전략을 개발했습니다:
+
+```python
+# 비용 효율적인 토큰 관리 전략
+async def message_truncation_hook(state: MultiAgentState) -> dict:
+    """메시지가 너무 길 경우 앞뒤 일부만 유지하는 훅"""
+    processed_messages = []
+    
+    for msg in state.get('messages', []):
+        # 시스템 메시지나 사용자 메시지는 항상 보존
+        if isinstance(msg, (SystemMessage, HumanMessage)):
+            processed_messages.append(msg)
+            continue
+            
+        # AI 메시지나 도구 메시지는 길이 체크
+        content = get_content(msg)
+        if content and num_tokens(content) > TRUNCATE_THRESHOLD:
+            # 앞부분 500자 + ... + 뒷부분 500자 형태로 절삭
+            truncated = content[:500] + "\n...[중략: 약 " + str(num_tokens(content) - 1000) + "토큰 분량의 내용이 생략됨]...\n" + content[-500:]
+            
+            # 복사본 생성 후 내용 교체
+            msg_copy = deepcopy(msg)
+            set_content(msg_copy, truncated)
+            processed_messages.append(msg_copy)
+        else:
+            processed_messages.append(msg)
+    
+    return {"llm_input_messages": processed_messages}
+```
+
+이 접근법을 통해 얻은 이점:
+
+1. **요약 모델 비용 절감**: 추가 LLM 호출 없이 단순 절삭으로 70-80%의 토큰을 절약
+
+2. **중요 정보 보존**: 일반적으로 메시지의 앞부분과 뒷부분에 중요 정보가 집중되어 있으므로, 이 부분을 유지하는 것만으로도 맥락 이해에 충분
+
+3. **처리 지연 최소화**: 요약 모델 호출 대비 약 2-3초의 시간 절약
+
+실제 테스트에서 품질 저하 없이 토큰 사용량을 약 65% 줄일 수 있었습니다.
+
+5️⃣ 핵심 기술 : 개념 지도
+
+##### 개념 지도 소개
+
+교육 콘텐츠 평가에서 "논리 구조가 복잡하다"나 "정보 밀도가 높다"와 같은 표현은 주관적이고 정성적인 평가에 불과했습니다. 이로 인해 난이도와 정보 밀도의 조절이 출제자의 경험과 직관에 의존해야 했고, AI를 활용한 자동화 시스템 구축이 어려웠습니다.
+
+KSAT Agent는 자체 개발한 **개념 지도**를 통해 이러한 정성적 평가를 정량화했습니다:
+
+| 기능 | 기존 방식 | 개념 지도의 효과 |
+|------|-----------|--------------------------------|
+| 논리 구조 파악 | 전문가의 주관적 평가 | **엣지 타입·깊이**를 계량화 |
+| 정보 밀도 판단 | 단순 글자수·문단수 | **노드 수 / 1천 token** 지표 |
+| 선지 생성 근거 | 수작업 검색 | 그래프 경로 탐색 |
+
+##### ① 예시 지문
+
+> "촉매는 화학 반응의 활성화 에너지를 낮춰 반응 속도를 높입니다. 그러나 촉매 자체는 반응 전후에 변하지 않습니다."
+
+##### ② 자동 추출된 그래프
+
+| 노드 ID | 라벨 | 설명 |
+|---------|------|------|
+| N1 | Catalyst | 촉매 |
+| N2 | ActivationEnergy | 활성화 에너지 |
+| N3 | ReactionRate | 반응 속도 |
+
+| 엣지 | 타입·레이블 | 의미 |
+|------|-------------|------|
+| N1→N2 | Causality · `influences` | 촉매가 에너지를 낮춤 |
+| N2→N3 | Causality · `causes` | 낮아진 에너지가 속도 증가 초래 |
+| N1→N1 | QuantComparison · `is_equal_to` | 촉매 전후 동일(자기 보존) |
+
+이러한 정량적 지표를 통해 Question Editor는 "원인→결과→불변" 경로를 선지 패턴으로 활용할 수 있습니다.
+
+이처럼 개념 지도는 논리 구조, 정보 밀도, 추론 경로를 객관적 수치로 변환하여, 
+
+개념 지도의 적용을 통해 에이전트에게 지문의 난이도와 정보 밀도를 정량적으로 주문할 수 있게 됩니다.
+
+---
+
+### 7️⃣ 서버 아키텍처
+
+##### 다중 사용자 세션 관리
+
+다중 사용자 환경에서 각 사용자의 작업 상태를 안전하게 관리하기 위해 세 가지 핵심 요소를 도입했습니다:
+
+| 요소 | 사용 기술 | 주요 기능 |
+|------|-----------|----------|
+| **대화 상태** | `MultiAgentState` (`TypedDict`) | 에이전트 간 메시지·요약·검색 결과를 단일 객체로 공유 |
+| **세션 DB** | `AsyncSqliteSaver` | Stream lit 다중 사용자 환경에서 세션별 체크포인트 유지 |
+| **만료 정리** | `cleanup_old_sessions()` | 24 시간 후 SQLite 파일 자동 삭제로 디스크 사용 최소화 |
+
+이를 통해 여러 사용자가 동시에 시스템을 사용해도 각 작업이 완전히 분리되어 관리되며, 
+
+만약 작업 중 오류가 발생하더라도 서버 DB에 저장된 세션을 불러와 마지막 체크포인트부터 작업을 재개할 수 있습니다:
+
+```python
+# 각 사용자별 독립된 세션 데이터베이스 생성
+memory = await aiosqlite.connect(f"sessions/{user_id}_{timestamp}.db")
+saver  = AsyncSqliteSaver(memory)
+await saver.setup()          # 필요한 테이블 자동 생성
+
+# 중요 작업 단계마다 상태 스냅샷 저장
+await saver.flush(state)     # 체크포인트 생성
+```
+
+
+#### 실시간 스트리밍 구현
+
+작업 시간이 5-10분 정도 소요되는 시스템에서는 사용자에게 진행 상황을 실시간으로 보여주는 것이 중요합니다. 
+
+이를 위해 FastAPI의 스트리밍 기능과 LangGraph의 `astream` 기능을 결합했습니다:
+
+```python
+@app.post("/chat/stream")
+async def chat_stream_endpoint(request: ChatRequest):
+    """실시간으로 에이전트 작업 과정을 스트리밍합니다"""
+    async def event_generator():
+        # 각 에이전트의 작업 과정을 실시간으로 스트림으로 전송
+        async for item in stream_agent_response(request):
+            # 줄바꿈을 추가해 클라이언트가 각 이벤트를 구분할 수 있게 함
+            yield item + "\n"
+    
+    # 브라우저에 지속적인 연결 유지를 위한 헤더 설정
+    return StreamingResponse(
+        event_generator(),
+        media_type="application/json",
+        headers={
+            "Cache-Control": "no-cache",  # 캐싱 방지
+            "Connection": "keep-alive",   # 연결 유지
+        }
+    )
+```
+
+이 구현을 통해 사용자는 실시간 진행 상황을 토큰 단위로 확인할 수 있습니다.
+
+특히 서버-클라이언트 간 데이터 전송을 위해 SSE(Server-Sent Events) 대신 단순 JSON 라인 형식을 채택하여 토큰 단위 전송-파싱 과정을 단순화하고 안정적으로 작동하도록 설계했습니다.
+
+---
+### 8️⃣ 맺음말
+
+KSAT Agent는 기존 출제 프로세스를 상당 부분 효율화할 수 있을 것으로 기대합니다. 투입 비용을 낮춤으로써, 양질의 문항이 저렴한 가격에 공급될 수 있기를 바랍니다. 
+
+KSAT Agent가 교사와 학생들에게 실질적인 이로움을 가져다 주고, 나아가 교육 콘텐츠 제작의 패러다임을 바꾸는 계기가 되면 좋겠습니다. 감사합니다.
+
+
+_- 제작자 권준희 드림._

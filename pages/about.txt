@@ -1,468 +1,68 @@
-## 1. 시스템 개요
-
-이 시스템은 수능 국어 지문을 출제하는 Multi-Agent입니다. LangGraph를 기반으로 에이전트 간 제어 흐름을 관리하고, FastAPI를 통해 에이전트의 출력을 실시간으로 스트리밍합니다.
-
-### 왜 멀티 에이전트로 접근했는가?
-
-수능 수준에 부합하는 독서 지문과 문항을 생성하는 것은 단일 LLM으로는 달성하기 어려운 복잡한 작업이었습니다.
-
--   글의 정보 밀도가 높고 출제를 염두한 섬세한 사전 설계가 필요
--   분야(인문/과학/사회 등)마다 다른 작문 스타일을 하나의 시스템 프롬프트로 구현하기 어려움
--   레퍼런스를 제공하기 위해서는 사용자가 일일이 프롬프트에 삽입해야 함
-
-이러한 한계를 극복하기 위해 전문화된 에이전트들이 각자의 역할을 수행하며 협업하는 구조를 채택했습니다.
-
-## 2. 에이전트 아키텍처
-
-### 2.1 에이전트 구성 및 역할
-
-시스템은 5개의 전문화된 에이전트로 구성되어 있으며, 각 에이전트는 특정 작업에 특화되어 있습니다:
-
-| 에이전트         | 주요 역할                      | 사용 모델     |
-| -------------- | ------------------------------ | ------------- |
-| Supervisor     | 작업 흐름 조정 및 제어권 관리  | Gemini-2.5-flash       |
-| Researcher     | 정보 수집 및 개념 지도 작성    | Gemini-2.5-flash     |
-| Passage_editor | 개념 지도 기반 지문 작성       | Claude-3.7       |
-| Question_editor| 지문 기반 문항 및 선지 생성    | Claude-3.7    |
-| Validator      | 지문-문항 일관성 및 품질 검증 | Gemini-2.5-flash      |
-
-- Gemini는 Context Window가 매우 크고 분석력이 뛰어납니다. 그리고 속도와 비용 또한 장점입니다. 따라서 호출이 빈번한 Supervisor과 생성보다는 분석에 초점이 맞추어진 Researcher, Validator에 사용했습니다.
-- Claude는 api 비용이 비싸고 Overload 오류가 자주 발생하지만, 작문 퀄리티는 LLM 중 최상급입니다. 따라서 메인 컨텐츠인 지문 및 문항 생성을 담당하는 Passage_editor과 Question_editor에 사용했습니다.
-
-### 2.2 에이전트 간 협업 구조
-
-LangGraph 기반의 상태 그래프를 통해 에이전트 간 협업이 이루어집니다. 이 구조의 특징은:
-
--   **중앙 집중형 제어**: Supervisor가 사용자와 직접 소통하며, 각 에이전트에 작업 제어권을 전달합니다. 다른 에이전트의 작업 후에는 항상 Supervisor에게 작업 제어권이 반환됩니다.
-    
--   **상태 기반 작업 관리**: LangGraph의 GraphState의 통합 메세지 히스토리를 통해 모든 에이전트가 작업 진행 상황을 공유합니다. 현재는 저장 공간으로 메모리를 사용합니다.(MemorySaver)
-    
--   **조건부 전환**: 작업 결과에 따라 Supervisor Agent가 다음 단계로 진행할지 결정하고, 이에 따라가 작업 순서가 결정되는 동적 워크플로우
-    
-
-이러한 구조를 통해 복잡한 작업을 모듈화하고, 각 모듈이 유동적으로 작동하는 구조를 구현할 수 있었습니다.
-
-## 3. 워크플로우: 지문 생성 프로세스
-
-지문 생성은 다음과 같은 단계로 진행됩니다:
-
-### 단계 1: 요청 분석 및 계획 수립
-
-Supervisor 에이전트가 사용자 요청(주제, 난이도 등)을 분석하고 전체 작업 계획을 수립합니다. 이 단계에서는:
-
--   주제의 적합성 평가
--   작업 분배 계획 수립
--   전체 워크플로우 설계
-
-### 단계 2: 리서치 및 개념 지도 작성
-
-Supervisor의 지시에 따라 Researcher 에이전트가 활성화되어:
-
--   검색 도구를 활용해 주제 관련 자료 수집
--   핵심 개념과 개념 간 관계 분석
--   수능 지문에 적합한 수준의 개념 지도(7번에서 서술) 초안 작성
--   작업 완료 후 슈퍼바이저에게 제어권 반환
-
-### 단계 3: 지문 작성
-
-Supervisor가 Researcher의 결과물을 검토한 후 Passage_editor에게 제어권을 전달합니다. Passage_editor는:
-
--   개념 지도를 바탕으로 논리적 구조의 독서 지문 작성
--   수능 독서 지문 특유의 문체와 논리 전개 방식 적용
--   적절한 정보 밀도와 어휘 수준 조절
--   작업 완료 후 Supervisor에게 제어권 반환
-
-### 단계 4: 문항 생성
-
-Supervisor가 지문을 검토한 후 Question_editor에게 제어권을 전달합니다. Question_editor는:
-
--   지문에 대한 심층 분석 수행
--   다양한 유형(사실적 이해, 추론, 비판 등)의 문항 설계
--   정답 및 오답 선지 작성
--   문항 난이도 조절
--   작업 완료 후 Supervisor에게 제어권 반환
-
-### 단계 5: 검증 및 최종화
-
-Supervisor가 지문과 문항을 Validator에게 전달합니다. Validator는:
-
--   지문과 문항의 일관성 평가
--   논리적 오류나 부정확한 정보 검출
--   문항의 난이도와 변별력 평가
--   개선 사항 제안
--   작업 완료 후 Supervisor에게 제어권 반환
-
-### 단계 6: 최종 결과 전달
-
-Supervisor가 검증 결과를 검토하고 필요 시 수정을 지시한 후 최종 결과물을 사용자에게 전달합니다.
-
-## 4. 작업 통제권 제어
-
-### 4.1 작업 통제권 관리의 필요성
-
-각 에이전트가 언제 활성화되고 비활성화될지를 Handoff 도구를 통해 명확히 관리하고 있습니다. 이로 인해 다음과 같은 장점이 있습니다.
-
--   에이전트 간 중복 작업 방지
--   선형 워크플로우를 유지하여 작업 순서를 동기적으로 관리
--   사용자가 작업 진행 상황을 명확하게 관찰 가능
-
-### 4.2 Supervisor의 Handoff 도구 사용
-
-LangGraph의 Command를 활용해 에이전트 간 제어 흐름을 관리했습니다. 제어권 전달은 다음과 같은 단계로 이루어집니다:
-
-1.  현재 활성된 에이전트가 작업 완료 후, LangGraph의 엣지 구조에 따라 자연스럽게 Supervisor에게 작업 통제권을 반환
-2.  작업 통제권을 이전해야 하는 경우, Supervisor는 Handoff 도구 사용
-3.  해당 에이전트에게 통제권을 이전하는 Command 객체 생성
-4.  StateGraph가 Command를 해석하여 대상 에이전트 활성화
-5.  새 에이전트의 작업 시작
-
-마치 릴레이 경주에서 바통을 전달하는 것과 유사합니다.
-
-```python
-@tool
-async def handoff_for_agent(
-    agent_name: Literal["validator", "passage_editor", "question_editor", "researcher"],
-    state: Annotated[dict, InjectedState],
-    tool_call_id: Annotated[str, InjectedToolCallId],
-	):
-    """다른 에이전트에게 제어권을 전달하는 도구"""
-    message = ToolMessage(
-        content="당신은 다른 에이전트로부터 통제권을 부여받았습니다. 현재까지의 작업 결과를 검토하고 다음 단계를 진행하세요.",
-        tool_call_id=tool_call_id,
-    )
-    return Command(
-        goto=agent_name,
-        graph=Command.PARENT,
-        update={"messages": state["messages"] + [message]}
-    )
+# KSAT Agent
+_Multi-Agent 기반 수능 국어 독서 영역 출제 자동화 시스템_
 
 ```
-
-## 5. DB 검색 도구 부여
-
-수능 지문 생성의 품질을 높이기 위해, 기출 지문을 벡터 DB에 임베딩하고, 에이전트가 활용할 수 있는 검색 도구 `retrieve_data`를 구현했습니다. 인간이 자료를 검색하고 분석하는 과정과 유사하게끔 설계했으며, 검색을 통해 명확한 기출 레퍼런스를 제공합니다. 이를 통해 에이전트의 작업 품질을 크게 향상시킬 수 있었습니다.
-
-### 5.1 검색 시스템의 구조
-
--   ChromaDB 기반 벡터 데이터베이스에 지문 세트를 임베딩
--   `retrieve_date` 도구를 사용하여 동적으로 쿼리 생성
--   벡터 유사도 기반 쿼리를 통해 의미 기반 검색 가능
--   풍부한 메타데이터를 통한 필터링
-
-### 5.2 DB 메타데이터 구조화
-
--   연도, 회차, 영역 등 기본 정보
--   기출 문항 및 해설
--   문항별 정답률
-
-```python
-@tool
-async def retrieve_data(
-    query: str,
-    year: int | None = None,
-    month: int | None = None,
-    field: str | None = None,
-    n_results: int = 1,
-    state: Annotated[dict, InjectedState] | None = None, # Optional for broader use
-    tool_call_id: Annotated[str, InjectedToolCallId] | None = None # Optional for broader use
-):
-    """기출 DB에서 텍스트 쿼리와 메타데이터 필터를 사용하여 관련 지문을 검색하는 도구.
-    Args:
-        query: 검색할 텍스트 쿼리.
-        year: 특정 학년도로 필터링.
-        month: 특정 월로 필터링 (6, 9, 11 등).
-        field: 특정 분야로 필터링 (예: '인문', '기술').
-        n_results: 반환할 결과 수 (기본값 2).
-    Returns:
-        검색 결과 리스트. 각 결과는 딕셔너리로 순위, 문서 ID, 문서 내용(지문), 메타데이터, 관련성 점수를 포함.
-        오류 발생 시 오류 메시지 문자열 반환.
-    """
-    try:
-        # DB 경로 및 이름 확인
-        db_path = "DB/kice"
-        collection_name = "kice_materials"
-        logger.info(f"ChromaDB 연결 시도: 경로='{db_path}', 컬렉션='{collection_name}'")
-        # ChromaDB 클라이언트 초기화
-        client = chromadb.PersistentClient(path=db_path, settings=Settings(anonymized_telemetry=False))
-        collection = client.get_collection(
-            name=collection_name,
-            embedding_function=OpenAIEmbeddingFunction(
-                model_name="text-embedding-3-large",
-                api_key=os.environ.get("OPENAI_API_KEY")
-            )
-        )
-        logger.info("ChromaDB 컬렉션 가져오기 성공.")
-
-        # 동적 필터링 조건 구성 (실제 메타데이터 필드 기준)
-        where_filter = {}
-        if year is not None: where_filter["year"] = year
-        if month is not None: where_filter["month"] = month
-        if field is not None: where_filter["field"] = field
-
-        logger.info(f"검색 쿼리: '{query}', 필터: {where_filter}, 결과 수: {n_results}")
-
-        # where_filter가 비어있으면 None을 전달
-        results = collection.query(
-            query_texts=[query],
-            n_results=n_results,
-            where=where_filter if where_filter else None,
-            include=['documents', 'metadatas', 'distances'] 
-        )
-
-        # 결과 포맷팅
-        formatted_results = []
-        if results and results.get('ids', [[]])[0]: 
-            logger.info(f"{len(results['ids'][0])}개의 검색 결과 반환됨.")
-            for i, (doc_id, doc, metadata, distance) in enumerate(zip(
-                results.get('ids', [[]])[0],
-                results.get('documents', [[]])[0],
-                results.get('metadatas', [[]])[0],
-                results.get('distances', [[]])[0]
-            )):
-                formatted_results.append({
-                    "rank": i + 1,
-                    "id": doc_id, # 파일명
-                    "document": doc, # 지문 내용
-                    "metadata": metadata, # year, month, field, qna_details
-                    "relevance_score": 1 - distance if distance is not None else 0 # 유사도 점수
-                })
-        else:
-            # 결과 없으면 빈 리스트 반환
-            return []
-
-        return formatted_results
-
-    except Exception as e: 
-        return f"검색 중 오류 발생: {e}"
+제작자 : 권준희
+소속 : 연세대학교 교육학과
+ver 0.4.0
 ```
+---
 
-### 5.3 검색 프로세스
+### 1️⃣ 개요
 
-LLM 에이전트는 다음과 같은 방식으로 검색 시스템을 활용합니다:
+수능 국어, 특히 독서 지문의 출제에는 상당한 시간과 비용이 필요합니다.
 
-1.  태스크 분석: 현재 작업에 필요한 정보 유형 파악
-2.  쿼리 구성: 효과적인 검색을 위한 쿼리 및 필터 설계, 검색 도구 호출
-3.  검색 실행: 검색 도구가 벡터 데이터베이스에 쿼리 전송, 자연어로 다시 임베딩
-4.  결과 분석: 검색 결과의 관련성과 유용성 평가
-5.  정보 통합: 유용한 정보를 현재 작업에 통합
+KSAT Agent는 고품질의 수능 국어 독서 지문 세트를 **약 10분 안에** 완성하여 제공할 수 있습니다.
 
-## 6. 서버-클라이언트 구조 및 스트리밍 방식
-
-### 6.1 서버-클라이언트 아키텍처
-
-시스템은 백엔드 서버와 프론트엔드 클라이언트로 구성된 분리된 아키텍처를 채택했습니다:
-
--   **백엔드 서버 (FastAPI)**
-    
-    -   `StateGraph` 인스턴스 생성, 메모리 초기화
-    -   ChromaDB 클라이언트 초기화
-    -   LLM API 호출 처리
-    -   비동기 요청 처리
-    -   스트리밍 응답 생성, `/stream` 엔드포인트를 받아 전송
-
-
--   **프론트엔드 클라이언트 (Streamlit)**
-    
-    -   사용자 인터페이스 제공
-    -   백엔드 서버와 통신
-    -   스트리밍 데이터 처리
-    -   생성된 지문과 문항은 전용 아티팩트에 따로 표시
-    -   세션 상태 관리(추후 백앤드 측 DB화 고려)
-
-
-### 6.2 실시간 스트리밍 메커니즘
-
-LLM 생성은 시간이 소요되는 작업이기 때문에, 사용자 경험 향상을 위해 SSE(Server-Sent Events) 기반 실시간 스트리밍 방식을 구현했습니다:
-
--   **서버 측 구현**
-    
-    -   LangGraph의 `astream` 메서드를 활용한 비동기 스트리밍
-    -   에이전트별 출력 구분 및 메타데이터 포함
-    -   구조화된 JSON 형식으로 이벤트 전송
-    -   오류 처리
--   **클라이언트 측 구현**
-    
-    -   EventSource 객체를 통한 스트림 연결
-    -   메시지 유형별 처리(일반 메시지, 도구 호출, 오류 등)
-    -   에이전트별 출력을 분리하여 표시
-    -   스트리밍 중단 및 오류 발생 시 정확한 로깅 처리
-
-스트리밍 방식은 `astream` 메서드와 `stream_mode=messages`를 사용하여,토큰 단위로 스트리밍 및 파싱합니다.
-
-```python
-@app.post("/chat/stream")
-async def chat_stream_endpoint(request: ChatRequest):
-    async def event_generator():
-        async for item in stream_agent_response(request):
-            # item은 이미 JSON 문자열
-            #logger.info(f"전송된 청크:\n{item}")
-            yield item + "\n"  # iter_lines()가 줄 단위로 인식하도록
-    return StreamingResponse(
-        event_generator(),
-        media_type="application/json",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        }
-    )
-
-```
-
-# 개념 지도 스키마 v5.0 – 상위권‧고난도 수능 독서 출제를 위한 설계 문서  
-*(이전 버전 4.1 → 5.0 전환)*  
+사용자는 AI와 함께 원하는 주제를 섬세하게 결정한 후, 나머지 출제 과정은 여섯 개의 AI 에이전트가 분담하여 처리합니다.
 
 ---
 
-## 1. 개요 & 필요성  
-고난도 독서 문항은 **단일 사실 확인**이 아닌 *다단계 추론·비판적 비교·관점 충돌*을 요구한다.  
-스키마 v5.0은 이러한 문항을 **그래프 한 ∼ 두 홉** 안에서 근거를 찾고, 세 ∼ 네 홉까지 확장해 종합적 판단이 가능하도록 다음을 목표로 한다.
+### 2️⃣ 효과성
 
-| 목표 | 설명 |
-|------|------|
-| **추론 깊이** | 인과·조건·반례·메타평가까지 4-레벨 이상 연쇄 관계 추적 가능 |
-| **관점 대립** | 동일 노드에 대해 *주장·근거·반박·양보*를 구조적으로 표현 |
-| **질적 비교** | “A ↔ B” 단순 비교를 넘어 *우위/열위·준거축*을 명시 |
-| **검증 가능성** | 선지 판별 시 *supporting_sentence* 1-2개면 충분하도록 설계 |
-| **다분야 호환** | 법·정치, 과학·기술, 철학·예술 지문 모두 공통 스키마 사용 |
+기존 출제 프로세스를 크게 단축하고, 상당한 비용을 절감할 수 있습니다.
 
----
+##### 기존 출제 프로세스
 
-## 2. 주요 변경점 (v4.1 → v5.0)
+| 기존 출제 과정 | 주요 문제점 |
+|----------------|------------|
+| **출제 기간** | 초안 작성 → 검토 → 수정이 반복되어 1~2개월의 시간을 필요로 합니다. |
+| **높은 출제 비용** | 지문 세트당 백만 원 이상의 높은 원고료를 지불해야 합니다. |
+| **서면 위주 의사소통** | 출제자와 검토자가 분리되어 있는 구조로 인해, 의견 교환에 제한이 있고 즉각적인 피드백이 어렵습니다. |
 
-| 구분 | v4.1 | v5.0 (신규·변경) |
-|------|------|-----------------|
-| **Edge Type 수** | 15종 | **20종** (5 종 추가) |
-| **Label 수** | 27개 | **38개** |
-| **다중 논증 구조** | supports / contradicts | **argument_unit**, **rebuttal_of**, **conditioned_by** 등 세분화 |
-| **메타 관계** | 부재 | **stance_on**, **uses_framework** → 관점·방법론 표현 |
-| **수량 비교** | is_equal_to 등 3개 | **delta_is_positive/negative** 추가 → 기울기·증감 표현 |
-| **예외·한계** | 없음 | **has_exception**, **has_scope_limit** |
-| **불확실성** | 없음 | **has_probability**, **is_hypothetical** |
-| **노드 속성** | id/label 등 | **tier**(core/support), **discourse_role**(claim/data/warrant) 추가 |
-| **JSON 스키마** | 단일 버전 | **$schema** 필드로 버전 명시, backward-compatible |
+
+##### KSAT Agent 활용 시
+
+| 항목 | 기존 | KSAT Agent 사용 시 |
+|------|---------|--------------------|
+| **소요 시간** | 1 ~ 2 개월 | **10 분** |
+| **비용** | 100~200만 원 | **500 원** (평균 사용량 기준) |
+| **의사소통** | 서면 피드백 반복 | 기출 분석과 최신 경향을 학습한 AI와 **실시간 대화** |
 
 ---
 
-## 3. 엣지 스키마 v5.0 (총 20 Type / 38 Label)
+### 3️⃣ 에이전트 구조
 
-> **굵게**: v5.0 신규
+##### 핵심 아이디어
 
-| Type | Label (필수) | 설명·용례 |
-|------|--------------|-----------|
-| **Hierarchy** | **is_parent_of**, **is_child_of** | 학파·법조문·분류 체계 |
-| Classification | belongs_to | “정신분석 이론 A belongs_to 심리학” |
-| Definition | defines | “도덕 문장 defines 진리 부정” |
-| Composition | has_part | “플라스틱 has_part 결정 영역” |
-| Property | has_attribute | “경영 공시 has_attribute 투명성” |
-| Comparison | is_similar_to, differs_from | 철학 A vs B 비교 |
-| **QuantComparison** | is_greater_than, is_less_than, is_equal_to, **delta_is_positive/negative** | 지지율 증가·감소 등 |
-| Causality | causes, influences | “과산화물 개시제 causes 이중 결합 파괴” |
-| **CounterCausality** | **mitigates**, **exacerbates** | “사외이사 mitigates 폐쇄적 경영” |
-| Conditionality | requires, depends_on | “재판매가격유지 requires 정당한 이유” |
-| **Exception** | **has_exception**, **has_scope_limit** | 여론조사 공표 금지 예외(저작물) |
-| Temporal | occurs_at, before, after | 오존홀 occurs_at 9-11월 |
-| Spatial | is_located_at | 오존홀 is_located_at 남극 성층권 |
-| Purpose | has_purpose, functions_as, uses_means | 스톡옵션 has_purpose 인센티브 |
-| Example | is_example_of | 폴리에틸렌 is_example_of 열가소성 |
-| Reference | refers_to, is_source_of | 문헌 간 인용 |
-| Evaluation | views_as, has_stance | “바쟁 has_stance 몽타주 부정” |
-| Argumentation | supports, contradicts, **rebuttal_of**, **argument_unit** | 복합 논증 트리 |
-| **Methodology** | **uses_framework**, **is_derived_from** | “천두슈 uses_framework 과학 정신” |
-| **Modality** | **is_hypothetical**, **has_probability** | “오존 회복 has_probability 0.8 by 2050” |
+1. **역할 분담** – '탐색·설계·집필·출제·검증·총괄' 여섯 단계를 전문화된 AI가 전담합니다.  
+2. **순환 검토** – 검증 단계에서 오류를 발견하면 그 단계만 다시 실행하여 전체 일정을 단축합니다.  
+3. **대화형 인터페이스** – 사용자는 채팅 한 줄로 주제를 입력하고, 진행 상황과 결과를 실시간으로 확인합니다.
 
----
 
-## 4. 노드 메타데이터 확장
+##### 에이전트 역할 요약
 
-| 필드 | 형식 | 설명 |
-|------|------|------|
-| id | string | 고유 ID |
-| label | string | 정규화된 단수 명사 |
-| type | string | concept / process / actor / value 등 |
-| **tier** | core / support | 핵심 채점용 vs 배경 정보 |
-| **discourse_role** | claim / data / warrant / rebuttal / backing | 톤퀸 모델 기반 |
-| description | string | (선택) 요약 |
-| text_span | [int,int] | 원문 위치 |
+| 단계 | 에이전트 | 주요 업무 |
+|------|----------|-----------|
+| ① | **Supervisor** | 전체 절차 지휘 및 다음 단계 호출 |
+| ② | **Researcher** | 기출 지문 검색 및 분석, 개념 지도 작성 |
+| ③ | **Architecture** | 문단 배치·논리 흐름 및 문항 설계 |
+| ④ | **Passage Editor** | 지문 집필 |
+| ⑤ | **Question Editor** | 5지선다 문항 작성 |
+| ⑥ | **Validator** | 일관성·난이도 평가, 해설 작성, 필요 시 재작업 지시 |
 
----
+*Validator가 "통과" 판정을 내리면 작업이 종료됩니다.
 
-## 5. JSON Top-Level 구조
 
-```json
-{
-  "$schema": "https://kice-graph.org/schema/v5.0",
-  "graph_id": "2025_06_section_8_11",
-  "document_source": {
-    "title": "플라스틱 중합 과정",
-    "source_file": "2025_06_section_8_11.txt",
-    "sections": ["8","9","10","11"]
-  },
-  "nodes": [ /* … */ ],
-  "edges": [ /* … */ ]
-}
-```
-
-* `$schema` 필드는 파서가 v5.0을 인식하도록 필수.  
-* **Backward compatibility** : v4.1 그래프를 v5.0 파서는 idempotent 변환 지원.
-
----
-
-## 6. 구축 Workflow (고난도 버전)  
-
-1. **Micro-chunk 파싱** : 문단→문장→의미 단위로 토큰화  
-2. **Core claim 선정** : tier=core 후보만 우선 그래프화  
-3. **Multi-hop 연결** : 최소 2-hop으로 답이 구성되도록 엣지 설계  
-4. **반례·제한** 배치 : has_exception / rebuttal_of 추가 → 판단형·보기형 선지 소재  
-5. **정량-정성 믹스** : QuantComparison + Evaluation 혼합 → ‘△보다 크다 + 가치 판단’ 선지 제작  
-6. **검증 문장 링크** : 모든 edge.metadata.supporting_sentence → 원문 exact string  
-
----
-
-## 7. 고난도 출제용 패턴 가이드
-
-| 문항 유형 | 그래프 패턴 | 예시(첨부 기출) |
-|-----------|-------------|-----------------|
-| 복합 추론형 | causes + has_exception + rebuttal_of | 오존홀 생성(원인) ↔ 온실가스 has_exception (성층권 온도 상승 시) |
-| 시점 변동형 | before / after + delta_is_positive | 북극 2011·2020 오존 감소 before 2023 |
-| 관점 대립형 | has_stance (+supports/contradicts) | 바쟁 vs 정신분석 영화 이론 |
-| 조건 위배형 | requires + contradicts | 도덕 문장 진리값 requires 검증 가능 ↔ 에이어 contradicts |
-
----
-
-## 8. 품질 Checklist (5 항)
-
-1. **근거 포함률 100 %** : 모든 core edge는 supporting_sentence 필수  
-2. **다중 경로** : 정답 선지는 2 이상 경로, 오답 선지는 1 경로 or break edge  
-3. **분기 균형** : 한 노드 degree 최대 7, 과도한 스타 구조 금지  
-4. **용어 일관성** : 동일 개념 label 동일, 상위/하위 관계 명시  
-5. **오류 로그 0** : JSON schema validation & unit-test 통과
-
----
-
-## 9. 예시 스니펫 (v5.0)
-
-```json
-{
-  "nodes":[
-    {"id":"n1","label":"Montage","type":"technique","tier":"core"},
-    {"id":"n2","label":"Continuity of Reality","type":"property","tier":"core"},
-    {"id":"n3","label":"Bazin","type":"actor","tier":"core","discourse_role":"claim"},
-    {"id":"n4","label":"Disruption","type":"effect","tier":"support"}
-  ],
-  "edges":[
-    {"source_id":"n1","target_id":"n2","type":"Comparison","label":"differs_from",
-     "metadata":{"supporting_sentence":"바쟁은 몽타주가 현실의 연속성을 깨뜨린다고 보았다."}},
-    {"source_id":"n1","target_id":"n4","type":"Causality","label":"causes",
-     "metadata":{"supporting_sentence":"몽타주는 공간을 불연속적으로 연결해 관객에게 생소한 느낌을 준다."}},
-    {"source_id":"n3","target_id":"n1","type":"Evaluation","label":"views_as",
-     "metadata":{"supporting_sentence":"바쟁은 몽타주가 관객 해석을 제한한다고 비판했다."}}
-  ]
-}
-```
-
----
-
-### ⬛︎ 결론  
-스키마 v5.0은 실제 최근 수능·모의평가(2024~2025) 지문에 포함된 **“법적 예외 조항, 다층 논증, 과학-철학 교차 비교, 수치 변화”** 패턴을 모두 포괄하도록 설계됐다.  
-이 스키마를 적용하면 **선지 하나에 최소 두 개 이상의 그래프 경로**가 걸리도록 구조화할 수 있어, *단순 매핑형* 오답을 걸러내고 **상위권 변별력**을 극대화할 수 있다.
+##### 작업 흐름
 
