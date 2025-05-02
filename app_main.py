@@ -162,8 +162,7 @@ class UI:
             
             st.info(
                 f"""
-                **제작자:** {config.author}\n
-                {config.where}\n
+                **제작자:** {config.author}
                 {config.contact}
                 """
             )
