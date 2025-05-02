@@ -158,7 +158,7 @@ class UI:
         """Create sidebar, detect screen height, and update session state."""
         with st.sidebar:
             st.title("수능 독서 출제용 Agent")
-            st.write(f"Version {config.version}")
+            st.write(f"version {config.version}")
             
             st.info(
                 f"""
