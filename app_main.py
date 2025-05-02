@@ -162,8 +162,8 @@ class UI:
             
             st.info(
                 f"""
-                **제작자:** {config.author}
-                {config.where}
+                **제작자:** {config.author}\n
+                {config.where}\n
                 {config.contact}
                 """
             )
