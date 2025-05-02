@@ -2,7 +2,49 @@
 
 ### 4️⃣ 세부 기술 구현
 
-#### LangGraph 선택 배경
+##### 프로젝트 구조
+
+```
+KSAT Agent/
+├── frontend/               # Streamlit 기반 웹 인터페이스
+│   ├── app_main.py         # 메인 앱 진입점
+│   ├── pages/              # 페이지 컴포넌트
+│   └── .streamlit/         # Streamlit 설정
+│
+├── backend/                # 멀티 에이전트 시스템 코어
+│   ├── agent_server.py     # FastAPI 서버
+│   ├── graph_factory.py    # LangGraph 워크플로우 구현
+│   ├── prompt.py           # 에이전트별 프롬프트 템플릿
+│   ├── tools.py            # 에이전트 도구 정의
+│   ├── handoff_tools.py    # 에이전트 간 통제권 전환 도구
+│   ├── model_config.py     # LLM 모델 설정
+│   ├── message_reducer.py  # 토큰 관리 최적화
+│   └── DB/                 # 데이터베이스
+│       ├── checkpointer/    # 세션 관리용 DB (SQlite)
+│       └── kice/            # 기출 검색용 DB (ChromaDB)
+└── Parser/                 # 기출 문제 분석 및 데이터 처리
+    ├── db_manager.py       # 데이터베이스 관리
+    ├── pdf_question_parser.py  # PDF 문제 추출
+    └── pdf_answer_parser.py    # PDF 답안 추출
+
+```
+
+##### 주요 기술 스택
+
+| 영역 | 기술 | 용도 |
+|------|------|------|
+| **프론트엔드** | Streamlit | 사용자 인터페이스 및 실시간 진행상황 표시 |
+| **백엔드** | FastAPI | API 서버 및 스트리밍 응답 처리 |
+| **멀티에이전트** | LangGraph | 에이전트 간 상태 관리 및 워크플로우 |
+| | LangChain | 메모리, 체인, 도구 활용 |
+| **데이터베이스** | ChromaDB | 의미 검색 및 벡터 저장소 |
+| | SQLite | 세션 상태 관리 및 체크포인트 |
+| **LLM** | OpenAI GPT-4.1 | Supervisor 에이전트 |
+| | Anthropic Claude-3.7 | Passage Editor 에이전트 |
+| | Gemini-2.5 Flash | Researcher, Question Editor, Validator 에이전트 |
+| **임베딩** | OpenAI text-embedding-3 | 한국어 텍스트 벡터화 |
+
+##### LangGraph 선택 배경
 
 수능 지문 생성은 여러 단계의 복잡한 작업이 순차적으로 이루어져야 합니다. 초기에는 단일 LLM을 사용한 접근법도 고려했으나, 다음과 같은 한계에 직면했습니다:
 ```
@@ -32,7 +74,7 @@ builder.add_conditional_edges(
 graph = builder.compile()
 ```
 
-#### LLM 모델 선택
+##### LLM 모델 선택
 
 각 태스크의 특성에 맞게 최적화된 LLM 모델을 사용했습니다.
 
@@ -56,7 +98,7 @@ passage_editor_agent = create_react_agent(
 )
 ```
 
-#### 에이전트 간 작업 통제권 전환 메커니즘
+##### 에이전트 간 작업 통제권 전환 메커니즘
 
 초기 버전에서는 에이전트 간 전환을 위해 LangGraph의 조건부 엣지를 이용했습니다. 그러나 이는 다음과 같은 문제를 야기했습니다:
 
@@ -94,7 +136,7 @@ async def handoff_for_agent(
 
 코드 한 줄 수정 없이, Supervisor의 프롬프트만 변경하면 새로운 워크플로우가 적용됩니다.
 
-#### ChromaDB 선택 이유와 임베딩 전략
+##### ChromaDB 선택 이유와 임베딩 전략
 
 LLM이 기출 문제를 능동적으로 검색할 수 있는 시스템을 구축하기 위해 여러 벡터 데이터베이스 옵션을 검토했습니다:
 
@@ -130,7 +172,7 @@ results = collection.query(
 )
 ```
 
-#### 토큰 비용 관리
+##### 토큰 비용 관리
 
 AI 모델의 컨텍스트 제한과 비용 문제를 해결하기 위해, 일반적으로 사용되는 요약 모델 접근법 대신 독창적인 "절삭+주입" 전략을 개발했습니다:
 
@@ -174,7 +216,7 @@ async def message_truncation_hook(state: MultiAgentState) -> dict:
 
 ### 5️⃣ 개념 지도
 
-#### 개념 지도 소개
+##### 개념 지도 소개
 
 교육 콘텐츠 평가에서 "논리 구조가 복잡하다"나 "정보 밀도가 높다"와 같은 표현은 주관적이고 정성적인 평가에 불과했습니다. 이로 인해 난이도와 정보 밀도의 조절이 출제자의 경험과 직관에 의존해야 했고, AI를 활용한 자동화 시스템 구축이 어려웠습니다.
 
@@ -214,7 +256,7 @@ KSAT Agent는 자체 개발한 **개념 지도**를 통해 이러한 정성적 �
 
 ### 7️⃣ 서버 아키텍처
 
-#### 다중 사용자 세션 관리
+##### 다중 사용자 세션 관리
 
 다중 사용자 환경에서 각 사용자의 작업 상태를 안전하게 관리하기 위해 세 가지 핵심 요소를 도입했습니다:
 
@@ -239,7 +281,7 @@ await saver.flush(state)     # 체크포인트 생성
 ```
 
 
-#### 실시간 스트리밍 구현
+##### 실시간 스트리밍 구현
 
 작업 시간이 5-10분 정도 소요되는 시스템에서는 사용자에게 진행 상황을 실시간으로 보여주는 것이 중요합니다. 
 
