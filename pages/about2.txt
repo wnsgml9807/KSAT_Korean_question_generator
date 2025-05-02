@@ -22,6 +22,7 @@ KSAT Agent/
 │   └── DB/                 # 데이터베이스
 │       ├── checkpointer/    # 세션 관리용 DB (SQlite)
 │       └── kice/            # 기출 검색용 DB (ChromaDB)
+│  
 └── Parser/                 # 기출 문제 분석 및 데이터 처리
     ├── db_manager.py       # 데이터베이스 관리
     ├── pdf_question_parser.py  # PDF 문제 추출
