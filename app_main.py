@@ -9,6 +9,7 @@ import re
 import time
 import streamlit_mermaid as stmd  # 머메이드 라이브러리 추가
 from streamlit import Page # Import Page
+import hashlib # 비밀번호 해싱을 위해 추가
 
 # Configuration class for app settings
 class Config:
@@ -35,9 +36,10 @@ class Config:
 # Logging setup
 def setup_logging():
     """Configure logging for the application"""
+    # 로깅 포맷에 사용자 이름 추가 준비 (실제 추가는 로깅 시점에)
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s' # 포맷은 그대로 두거나 필요시 수정
     )
     return logging.getLogger(__name__)
 
@@ -70,17 +72,21 @@ class SessionManager:
             st.session_state.input = None
             logger.info("세션 상태에 'input' 초기화: None")
 
+        # 로그인 상태 초기화 추가
+        if 'logged_in' not in st.session_state:
+            st.session_state['logged_in'] = False
+            st.session_state['username'] = None
+            logger.info("세션 상태에 'logged_in', 'username' 초기화")
+
     @staticmethod
     def reset_session(logger):
         """Reset the session state, preserving session_id and viewport_height"""
-        # Generate new session ID (already done, but just confirming logic)
-        # st.session_state.session_id = f"session_{uuid.uuid4()}"
-        # logger.info(f"세션 ID 재생성: {st.session_state.session_id}") # This might be needed if we want a *new* session ID on reset
-
         # Get current session_id and viewport_height to preserve them
         current_session_id = st.session_state.get("session_id")
         current_viewport_height = st.session_state.get("viewport_height")
-        logger.info(f"세션 리셋 전: session_id={current_session_id}, viewport_height={current_viewport_height}")
+        # 로그인 사용자 정보 로깅 추가
+        current_user = st.session_state.get('username', 'anonymous')
+        logger.info(f"User [{current_user}]: 세션 리셋 요청. 유지 항목: session_id={current_session_id}, viewport_height={current_viewport_height}")
 
         # Clear all other session state variables
         keys_to_clear = list(st.session_state.keys())
@@ -89,13 +95,12 @@ class SessionManager:
             if key not in ["session_id", "viewport_height"]:
                 del st.session_state[key]
         
-        # Re-initialize necessary session variables (like messages)
+        # Re-initialize necessary session variables (like messages, login status)
         st.session_state.messages = []
-        # 스트리밍 상태도 리셋
         st.session_state.is_streaming = False
-        logger.info("메시지 등 다른 세션 변수 초기화 완료 (session_id, viewport_height 유지됨)")
-        # If session_id needs to be regenerated on reset, uncomment the lines above
-        # And ensure the new session_id is kept here
+        st.session_state['logged_in'] = False # 리셋 시 로그아웃 상태로
+        st.session_state['username'] = None
+        logger.info("메시지, 로그인 상태 등 다른 세션 변수 초기화 완료 (session_id, viewport_height 유지됨)")
 
     @staticmethod
     def add_message(role, content):
@@ -205,6 +210,21 @@ class UI:
                 st.success("세션이 초기화되었습니다. (화면 높이 정보 유지됨)")
                 time.sleep(1)
                 st.rerun()
+
+            # --- 로그아웃 버튼 추가 (로그인 상태일 때만 표시) ---
+            if st.session_state.get('logged_in', False):
+                if st.button("🔒 로그아웃"):
+                    username = st.session_state.get('username', 'unknown')
+                    logger.info(f"User [{username}]: 로그아웃 버튼 클릭")
+                    # 세션 상태 초기화 (로그인 관련만)
+                    st.session_state['logged_in'] = False
+                    st.session_state['username'] = None
+                    # 필요한 다른 세션 상태도 초기화 가능
+                    # SessionManager.reset_session(logger) # 또는 전체 리셋
+                    st.success(f"{username}님, 로그아웃되었습니다.")
+                    time.sleep(1)
+                    st.rerun() # 로그아웃 시 페이지 새로고침하여 로그인 폼 표시
+            # --- --------------------------------------- ---
     
     @staticmethod
     def create_layout(viewport_height):
@@ -389,14 +409,21 @@ class BackendClient:
             # Initialize message data storage
             message_data = {"messages": []}
             
-            self.logger.info(f"""백엔드 요청 전송됨\n세션 ID: {session_id}\n프롬프트:\n{prompt}""")
-            
+            # 사용자 이름 가져오기 (로그 추적용)
+            user_id = st.session_state.get("username", "anonymous") # 로그인 안 된 경우 대비
+
+            self.logger.info(f"""백엔드 요청 전송됨
+User: {user_id}
+세션 ID: {session_id}
+프롬프트:
+{prompt}""")
+
             try:
                 # Setup the API request
                 endpoint = f"{self.backend_url}/chat/stream"
                 response = requests.post(
                     endpoint,
-                    json={"prompt": prompt, "session_id": session_id},
+                    json={"prompt": prompt, "session_id": session_id, "user_id": user_id}, # user_id 추가
                     stream=True,
                     timeout=1200
                 )
@@ -452,7 +479,7 @@ class BackendClient:
                                 "content": current_text,
                                 "agent": current_agent
                             })
-                            logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
+                            logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\n{current_text}')
                             current_idx += 1
                             current_text = ""  # 텍스트 초기화 (중요)
                             
@@ -479,7 +506,7 @@ class BackendClient:
                         # 현재 텍스트가 있으면 저장
                         if current_text:
                             self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                            logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
+                            logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\n{current_text}')
                             # 에러 메시지 표시
                             with placeholders[current_idx].container(border=False):
                                 st.error(text)
@@ -508,7 +535,7 @@ class BackendClient:
                     if agent != current_agent:
                         # 현재 텍스트가 있으면 저장
                         if current_text:
-                            logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
+                            logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\n{current_text}')
                             self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
                             message_data["messages"].append({
                                 "type": "text",
@@ -520,7 +547,7 @@ class BackendClient:
                         
                         # system 에이전트가 아닌 경우만 에이전트 변경 메시지 표시
                         if agent != "system":
-                            logger.info(f'에이전트 변경:{current_agent} to {agent}')
+                            logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 변경:{current_agent} to {agent}')
                             with placeholders[current_idx].container(border=False):
                                 st.info(f"{agent} 에이전트에게 통제권을 전달합니다.")
                             
@@ -547,7 +574,7 @@ class BackendClient:
                         # 현재 텍스트가 있으면 저장
                         if current_text:
                             self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                            logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
+                            logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\n{current_text}')
                             message_data["messages"].append({
                                 "type": "text",
                                 "content": current_text,
@@ -587,7 +614,7 @@ class BackendClient:
             
             # 비정상 종료 시에만 현재 텍스트 저장 (정상 종료는 이미 처리됨)
             if not has_ended and current_text:
-                logger.info(f'에이전트 응답:{current_agent}\n{current_text}')
+                logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\n{current_text}')
                 self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
                 message_data["messages"].append({
                     "type": "text",
@@ -618,7 +645,7 @@ class BackendClient:
         """Update the appropriate artifact based on type"""
         # Check if index is within bounds
         if idx >= len(placeholders):
-            self.logger.warning(f"Placeholder index {idx} out of range (max: {len(placeholders)-1})")
+            self.logger.warning(f"User [{st.session_state.get('username', 'anonymous')}]: Placeholder index {idx} out of range (max: {len(placeholders)-1})")
             return
             
         if artifact_type == "passage":
@@ -629,7 +656,7 @@ class BackendClient:
             try:
                 placeholders[idx].status(status_text, expanded=False, state=state)
             except Exception as e:
-                self.logger.warning(f"상태 업데이트 실패: {str(e)}")
+                self.logger.warning(f"User [{st.session_state.get('username', 'anonymous')}]: 상태 업데이트 실패: {str(e)}")
             
             # Update the passage content - 불필요한 div 태그 제거
             with self.passage_placeholder:
@@ -643,7 +670,7 @@ class BackendClient:
             try:
                 placeholders[idx].status(status_text, expanded=False, state=state)
             except Exception as e:
-                self.logger.warning(f"상태 업데이트 실패: {str(e)}")
+                self.logger.warning(f"User [{st.session_state.get('username', 'anonymous')}]: 상태 업데이트 실패: {str(e)}")
                 
             # Update the question content - 불필요한 div 태그 제거
             with self.question_placeholder:
@@ -657,7 +684,7 @@ class BackendClient:
     def _handle_json_error(self, error, line, placeholders, idx):
         """Handle JSON parsing errors"""
         error_msg = f"JSON 파싱 오류: {str(error)}"
-        self.logger.warning(f"JSON 파싱 실패, 데이터 무시: {line[6:]} (오류: {str(error)})")
+        self.logger.warning(f"User [{st.session_state.get('username', 'anonymous')}]: JSON 파싱 실패, 데이터 무시: {line[6:]} (오류: {str(error)})")
         
         # Check if index is within bounds
         if idx < len(placeholders):
@@ -670,7 +697,7 @@ class BackendClient:
     def _handle_stream_error(self, error, placeholders, idx):
         """Handle general errors during stream processing"""
         error_msg = f"메시지 처리 오류: {str(error)}"
-        self.logger.error(f"메시지 처리 중 오류 발생: {str(error)}", exc_info=True)
+        self.logger.error(f"User [{st.session_state.get('username', 'anonymous')}]: 메시지 처리 중 오류 발생: {str(error)}", exc_info=True)
         
         # Check if index is within bounds
         if idx < len(placeholders):
@@ -683,7 +710,7 @@ class BackendClient:
     def _handle_request_error(self, error, placeholders, idx):
         """Handle request errors"""
         error_msg = f"백엔드 연결 오류: {error}"
-        self.logger.error(error_msg, exc_info=True)
+        self.logger.error(f"User [{st.session_state.get('username', 'anonymous')}]: {error_msg}", exc_info=True)
         
         # Check if index is within bounds
         if idx < len(placeholders):
@@ -698,7 +725,7 @@ class BackendClient:
     def _handle_generic_error(self, error, placeholders, idx):
         """Handle generic errors"""
         error_msg = f"응답 처리 중 오류 발생: {error}"
-        self.logger.error(error_msg, exc_info=True)
+        self.logger.error(f"User [{st.session_state.get('username', 'anonymous')}]: {error_msg}", exc_info=True)
         
         # Check if index is within bounds
         if idx < len(placeholders):
@@ -720,8 +747,55 @@ def show_main_app(config, logger):
         """채팅 입력 제출 시 호출되는 콜백 함수"""
         st.session_state.is_streaming = True
     
-    # Initialize session (ensures messages/session_id/viewport_height exist)
+    # Initialize session (ensures messages/session_id/viewport_height/login status exist)
     SessionManager.initialize_session(logger)
+
+    # --- 로그인 확인 및 로그인 폼 처리 ---
+    if not st.session_state.get('logged_in', False):
+        # 컬럼을 사용하여 로그인 폼을 가운데 정렬 (wide 레이아웃에서)
+        col1, col2, col3 = st.columns([1, 1, 1]) # 비율 조절 가능 (예: [1, 2, 1])
+
+        with col2: # 가운데 컬럼 사용
+            st.title("🔐 로그인")
+
+            input_username = st.text_input("username", key="login_username", value="admin", placeholder="사용자 이름" ) # 키 추가/변경
+            input_password = st.text_input("key", type="password", key="login_password", value="1111", placeholder="4자리 숫자") # 키 추가/변경
+        
+            if st.button("로그인", key="login_button", type="primary"): # 키 추가/변경
+                login_successful = False
+                try:
+                    # Secrets에서 사용자 정보 가져오기 (오류 처리 추가)
+                    credentials = st.secrets.get("credentials", {})
+                    users = credentials.get("users", [])
+
+                    if not users:
+                        st.error("설정된 사용자 정보가 없습니다. secrets.toml 파일을 확인하세요.")
+                    else:
+                        for user in users:
+                            # 입력된 비밀번호 해싱 제거 및 평문 비교로 변경
+                            # hashed_input_password = hashlib.sha256(input_password.encode()).hexdigest()
+                            # 사용자 이름 및 평문 비밀번호 비교
+                            if user.get("username") == input_username and user.get("password") == input_password:
+                                st.session_state['logged_in'] = True
+                                st.session_state['username'] = input_username
+                                logger.info(f"로그인 성공: {input_username}")
+                                login_successful = True
+                                st.success(f"{input_username}님, 환영합니다!")
+                                time.sleep(1) # 성공 메시지 잠시 보여주기
+                                st.rerun() # 로그인 성공 시 페이지 새로고침하여 메인 앱 표시
+                                break # 일치하는 사용자 찾으면 루프 종료
+
+                        if not login_successful:
+                            st.error("사용자 이름 또는 비밀번호가 잘못되었습니다.")
+                            logger.warning(f"로그인 실패 시도: 사용자명 '{input_username}'")
+
+                except Exception as e:
+                     logger.error(f"로그인 처리 중 오류 발생: {e}", exc_info=True)
+                     st.error(f"로그인 중 오류가 발생했습니다: {e}")
+                
+            st.info("관련 문의 : wnsgml9807@naver.com")
+
+        st.stop() # 로그인 안 된 상태면 아래 코드 실행 안 함
 
     # --- rerun 시 세션 상태에서 가장 최근 높이 값 사용 ---
     latest_detected_height = st.session_state.get("viewport_height", 800)
@@ -744,7 +818,7 @@ def show_main_app(config, logger):
             st.markdown("🎯*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
             st.markdown("🎯*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
             st.markdown(" ")
-            st.markdown("ver : 0.4.0")
+            st.markdown("ver : 0.5.0")
     
     
     # --- 기존 메시지 표시 ---
