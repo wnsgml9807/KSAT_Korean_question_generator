@@ -20,6 +20,7 @@ class Config:
         self.sidebar_state = "expanded"
         self.version = "0.4.0"
         self.author = "권준희"
+        self.where = "연세대학교 교육학과"
         self.contact = "wnsgml9807@naver.com"
         self.about_page_path = "pages/about.py" # Add path for about page
         
@@ -162,6 +163,7 @@ class UI:
             st.info(
                 f"""
                 **제작자:** {config.author}
+                {config.where}
                 {config.contact}
                 """
             )
