@@ -18,7 +18,7 @@ class Config:
         self.page_icon = "📚"
         self.layout = "wide"
         self.sidebar_state = "expanded"
-        self.version = "0.4.0"
+        self.version = "0.5.0"
         self.author = "권준희"
         self.where = "연세대학교 교육학과"
         self.contact = "wnsgml9807@naver.com"

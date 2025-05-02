@@ -217,6 +217,8 @@ async def message_truncation_hook(state: MultiAgentState) -> dict:
 
 ### 5️⃣ 개념 지도
 
+>개념 지도에 대한 상세한 설명은 부록을 참고 부탁드립니다.
+
 #### 개념 지도 소개
 
 교육 콘텐츠 평가에서 "논리 구조가 복잡하다"나 "정보 밀도가 높다"와 같은 표현은 주관적이고 정성적인 평가에 불과했습니다. 이로 인해 난이도와 정보 밀도의 조절이 출제자의 경험과 직관에 의존해야 했고, AI를 활용한 자동화 시스템 구축이 어려웠습니다.
@@ -318,7 +320,166 @@ async def chat_stream_endpoint(request: ChatRequest):
 
 KSAT Agent는 기존 출제 프로세스를 상당 부분 효율화할 수 있을 것으로 기대합니다. 투입 비용을 낮춤으로써, 양질의 문항이 저렴한 가격에 공급될 수 있기를 바랍니다. 
 
-KSAT Agent가 교사와 학생들에게 실질적인 이로움을 가져다 주고, 나아가 교육 콘텐츠 제작의 패러다임을 바꾸는 계기가 되면 좋겠습니다. 감사합니다.
+KSAT Agent가 교사와 학생들에게 실질적인 이로움을 가져다 주고, 나아가 교육 콘텐츠 제작의 패러다임을 바꾸는 계기가 되면 좋겠습니다. 
+
+감사합니다.
 
 
-_- 제작자 권준희 드림._
+<br>
+<br>
+
+### :bulb: 부록 : 개념 지도 스키마 v5.0 Docs 
+
+_상위권‧고난도 수능 독서 출제를 위한 설계_
+
+---
+
+#### 1. 개요 & 필요성  
+고난도 독서 문항은 **단일 사실 확인**이 아닌 *다단계 추론·비판적 비교·관점 충돌*을 요구한다.  
+스키마 v5.0은 이러한 문항을 **그래프 한 ∼ 두 홉** 안에서 근거를 찾고, 세 ∼ 네 홉까지 확장해 종합적 판단이 가능하도록 다음을 목표로 한다.
+
+| 목표 | 설명 |
+|------|------|
+| **추론 깊이** | 인과·조건·반례·메타평가까지 4-레벨 이상 연쇄 관계 추적 가능 |
+| **관점 대립** | 동일 노드에 대해 *주장·근거·반박·양보*를 구조적으로 표현 |
+| **질적 비교** | “A ↔ B” 단순 비교를 넘어 *우위/열위·준거축*을 명시 |
+| **검증 가능성** | 선지 판별 시 *supporting_sentence* 1-2개면 충분하도록 설계 |
+| **다분야 호환** | 법·정치, 과학·기술, 철학·예술 지문 모두 공통 스키마 사용 |
+
+---
+
+#### 2. 주요 변경점 (v4.1 → v5.0)
+
+| 구분 | v4.1 | v5.0 (신규·변경) |
+|------|------|-----------------|
+| **Edge Type 수** | 15종 | **20종** (5 종 추가) |
+| **Label 수** | 27개 | **38개** |
+| **다중 논증 구조** | supports / contradicts | **argument_unit**, **rebuttal_of**, **conditioned_by** 등 세분화 |
+| **메타 관계** | 부재 | **stance_on**, **uses_framework** → 관점·방법론 표현 |
+| **수량 비교** | is_equal_to 등 3개 | **delta_is_positive/negative** 추가 → 기울기·증감 표현 |
+| **예외·한계** | 없음 | **has_exception**, **has_scope_limit** |
+| **불확실성** | 없음 | **has_probability**, **is_hypothetical** |
+| **노드 속성** | id/label 등 | **tier**(core/support), **discourse_role**(claim/data/warrant) 추가 |
+| **JSON 스키마** | 단일 버전 | **$schema** 필드로 버전 명시, backward-compatible |
+
+---
+
+#### 3. 엣지 스키마 v5.0 (총 20 Type / 38 Label)
+
+> **굵게**: v5.0 신규
+
+| Type | Label (필수) | 설명·용례 |
+|------|--------------|-----------|
+| **Hierarchy** | **is_parent_of**, **is_child_of** | 학파·법조문·분류 체계 |
+| Classification | belongs_to | “정신분석 이론 A belongs_to 심리학” |
+| Definition | defines | “도덕 문장 defines 진리 부정” |
+| Composition | has_part | “플라스틱 has_part 결정 영역” |
+| Property | has_attribute | “경영 공시 has_attribute 투명성” |
+| Comparison | is_similar_to, differs_from | 철학 A vs B 비교 |
+| **QuantComparison** | is_greater_than, is_less_than, is_equal_to, **delta_is_positive/negative** | 지지율 증가·감소 등 |
+| Causality | causes, influences | “과산화물 개시제 causes 이중 결합 파괴” |
+| **CounterCausality** | **mitigates**, **exacerbates** | “사외이사 mitigates 폐쇄적 경영” |
+| Conditionality | requires, depends_on | “재판매가격유지 requires 정당한 이유” |
+| **Exception** | **has_exception**, **has_scope_limit** | 여론조사 공표 금지 예외(저작물) |
+| Temporal | occurs_at, before, after | 오존홀 occurs_at 9-11월 |
+| Spatial | is_located_at | 오존홀 is_located_at 남극 성층권 |
+| Purpose | has_purpose, functions_as, uses_means | 스톡옵션 has_purpose 인센티브 |
+| Example | is_example_of | 폴리에틸렌 is_example_of 열가소성 |
+| Reference | refers_to, is_source_of | 문헌 간 인용 |
+| Evaluation | views_as, has_stance | “바쟁 has_stance 몽타주 부정” |
+| Argumentation | supports, contradicts, **rebuttal_of**, **argument_unit** | 복합 논증 트리 |
+| **Methodology** | **uses_framework**, **is_derived_from** | “천두슈 uses_framework 과학 정신” |
+| **Modality** | **is_hypothetical**, **has_probability** | “오존 회복 has_probability 0.8 by 2050” |
+
+---
+
+#### 4. 노드 메타데이터 확장
+
+| 필드 | 형식 | 설명 |
+|------|------|------|
+| id | string | 고유 ID |
+| label | string | 정규화된 단수 명사 |
+| type | string | concept / process / actor / value 등 |
+| **tier** | core / support | 핵심 채점용 vs 배경 정보 |
+| **discourse_role** | claim / data / warrant / rebuttal / backing | 톤퀸 모델 기반 |
+| description | string | (선택) 요약 |
+| text_span | [int,int] | 원문 위치 |
+
+---
+
+#### 5. JSON Top-Level 구조
+
+```json
+{
+  "$schema": "https://kice-graph.org/schema/v5.0",
+  "graph_id": "2025_06_section_8_11",
+  "document_source": {
+    "title": "플라스틱 중합 과정",
+    "source_file": "2025_06_section_8_11.txt",
+    "sections": ["8","9","10","11"]
+  },
+  "nodes": [ /* … */ ],
+  "edges": [ /* … */ ]
+}
+```
+
+* `$schema` 필드는 파서가 v5.0을 인식하도록 필수.  
+* **Backward compatibility** : v4.1 그래프를 v5.0 파서는 idempotent 변환 지원.
+
+---
+
+#### 6. 구축 Workflow (고난도 버전)  
+
+1. **Micro-chunk 파싱** : 문단→문장→의미 단위로 토큰화  
+2. **Core claim 선정** : tier=core 후보만 우선 그래프화  
+3. **Multi-hop 연결** : 최소 2-hop으로 답이 구성되도록 엣지 설계  
+4. **반례·제한** 배치 : has_exception / rebuttal_of 추가 → 판단형·보기형 선지 소재  
+5. **정량-정성 믹스** : QuantComparison + Evaluation 혼합 → ‘△보다 크다 + 가치 판단’ 선지 제작  
+6. **검증 문장 링크** : 모든 edge.metadata.supporting_sentence → 원문 exact string  
+
+---
+
+#### 7. 고난도 출제용 패턴 가이드
+
+| 문항 유형 | 그래프 패턴 | 예시(첨부 기출) |
+|-----------|-------------|-----------------|
+| 복합 추론형 | causes + has_exception + rebuttal_of | 오존홀 생성(원인) ↔ 온실가스 has_exception (성층권 온도 상승 시) |
+| 시점 변동형 | before / after + delta_is_positive | 북극 2011·2020 오존 감소 before 2023 |
+| 관점 대립형 | has_stance (+supports/contradicts) | 바쟁 vs 정신분석 영화 이론 |
+| 조건 위배형 | requires + contradicts | 도덕 문장 진리값 requires 검증 가능 ↔ 에이어 contradicts |
+
+---
+
+#### 8. 품질 Checklist (5 항)
+
+1. **근거 포함률 100 %** : 모든 core edge는 supporting_sentence 필수  
+2. **다중 경로** : 정답 선지는 2 이상 경로, 오답 선지는 1 경로 or break edge  
+3. **분기 균형** : 한 노드 degree 최대 7, 과도한 스타 구조 금지  
+4. **용어 일관성** : 동일 개념 label 동일, 상위/하위 관계 명시  
+5. **오류 로그 0** : JSON schema validation & unit-test 통과
+
+---
+
+#### 9. 예시 스니펫 (v5.0)
+
+```json
+{
+  "nodes":[
+    {"id":"n1","label":"Montage","type":"technique","tier":"core"},
+    {"id":"n2","label":"Continuity of Reality","type":"property","tier":"core"},
+    {"id":"n3","label":"Bazin","type":"actor","tier":"core","discourse_role":"claim"},
+    {"id":"n4","label":"Disruption","type":"effect","tier":"support"}
+  ],
+  "edges":[
+    {"source_id":"n1","target_id":"n2","type":"Comparison","label":"differs_from",
+     "metadata":{"supporting_sentence":"바쟁은 몽타주가 현실의 연속성을 깨뜨린다고 보았다."}},
+    {"source_id":"n1","target_id":"n4","type":"Causality","label":"causes",
+     "metadata":{"supporting_sentence":"몽타주는 공간을 불연속적으로 연결해 관객에게 생소한 느낌을 준다."}},
+    {"source_id":"n3","target_id":"n1","type":"Evaluation","label":"views_as",
+     "metadata":{"supporting_sentence":"바쟁은 몽타주가 관객 해석을 제한한다고 비판했다."}}
+  ]
+}
+
+#### ⬛︎ 결론  
+스키마 v5.0은 실제 최근 수능·모의평가(2024~2025) 지문에 포함된 **“법적 예외 조항, 다층 논증, 과학-철학 교차 비교, 수치 변화”** 패턴을 모두 포괄하도록 설계됐다.  
+이 스키마를 적용하면 **선지 하나에 최소 두 개 이상의 그래프 경로**가 걸리도록 구조화할 수 있어, *단순 매핑형* 오답을 걸러내고 **상위권 변별력**을 극대화할 수 있다.
