@@ -793,7 +793,7 @@ def show_main_app(config, logger):
                      logger.error(f"로그인 처리 중 오류 발생: {e}", exc_info=True)
                      st.error(f"로그인 중 오류가 발생했습니다: {e}")
                 
-            st.info("로그인 기능 테스트 중입니다.\n입력된 계정으로 로그인하세요.\n\n관련 문의 : wnsgml9807@naver.com")
+            st.info("로그인 기능 테스트 중입니다. 입력된 계정으로 로그인하세요.")
 
         st.stop() # 로그인 안 된 상태면 아래 코드 실행 안 함
 
