@@ -887,20 +887,6 @@ def show_main_app(config, logger):
         # 5. UI 업데이트를 위한 rerun
         logger.info("프롬프트 처리 완료. UI 업데이트 위해 rerun 호출.")
 
-        # 자동 스크롤 JS 추가
-        js = f"""
-        <script>
-            function scroll(dummy_var_to_force_repeat_execution){{
-                var textAreas = parent.document.querySelectorAll('section.main');
-                if (textAreas.length > 0) {{
-                    textAreas[0].scrollTop = textAreas[0].scrollHeight;
-                }}
-            }}
-            scroll({len(st.session_state.get('messages', []))});
-        </script>
-        """
-        st.components.v1.html(js, height=0) # height=0으로 설정하여 공간 차지 안 함
-
         st.rerun() # st.rerun()은 JS 코드 추가 이후에 호출
 
 # Application Entry Point
