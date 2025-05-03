@@ -10,6 +10,7 @@ import time
 import streamlit_mermaid as stmd  # 머메이드 라이브러리 추가
 from streamlit import Page # Import Page
 import hashlib # 비밀번호 해싱을 위해 추가
+from typing import Dict, Any
 
 # Configuration class for app settings
 class Config:
@@ -278,10 +279,20 @@ class UI:
 class MessageRenderer:
     """Handles message rendering and processing"""
     
-    def __init__(self, chat_container, passage_placeholder, question_placeholder):
+    def __init__(self, chat_container, passage_placeholder, question_placeholder, logger):
         self.chat_container = chat_container
         self.passage_placeholder = passage_placeholder
         self.question_placeholder = question_placeholder
+        self.logger = logger
+    
+    def _get_friendly_tool_name(self, tool_name):
+        """Translate internal tool names to user-friendly names."""
+        if tool_name == "retrieve_data":
+            return "기출 DB 검색"
+        elif tool_name == "subject_collection":
+            return "기출 주제 조회"
+        # 다른 도구 이름 변환 규칙 추가 가능
+        return tool_name
     
     def render_message(self, message):
         """Render a message based on its role and content"""
@@ -310,8 +321,6 @@ class MessageRenderer:
         """Process and render assistant message content"""
         # Parse content if it's a string
         
-        logger = logging.getLogger(__name__)
-        
         if isinstance(content, str):
             try:
                 msg_data = json.loads(content)
@@ -333,13 +342,36 @@ class MessageRenderer:
                 
                 # Handle text messages
                 if item_type == "text":
-                    self._render_text_item(item, item_agent, placeholders, current_idx)
-                    current_idx += 1
+                    # 수정: 아티팩트 텍스트와 일반 텍스트 분리 처리
+                    if item_agent in ["passage_editor", "question_editor"]:
+                        # 1. 완료 상태 표시 (placeholder 사용)
+                        status_label = "지문 작성 완료" if item_agent == "passage_editor" else "문제 작성 완료"
+                        with placeholders[current_idx].status(f"{status_label}", state="complete", expanded=False):
+                            pass # 내용 없음
+                        current_idx += 1 # 상태 표시 후 인덱스 증가
+                        
+                        # 2. 실제 텍스트는 아티팩트 패널에만 렌더링
+                        self._render_text_item(item, item_agent)
+                    else:
+                        # 일반 텍스트 메시지는 placeholder 사용
+                        if current_idx < len(placeholders):
+                            with placeholders[current_idx].container(border=False):
+                                st.markdown(item_content, unsafe_allow_html=True)
+                        else:
+                            st.markdown(item_content, unsafe_allow_html=True)
+                        current_idx += 1
                     
                 # Handle tool execution results
                 elif item_type == "tool":
-                    self._render_tool_item(item, placeholders, current_idx)
-                    current_idx += 1
+                    # _render_tool_item 내부에서 placeholder 인덱스를 사용하므로,
+                    # 호출 전에 인덱스 유효성 검사도 고려할 수 있음
+                    if current_idx < len(placeholders):
+                        self._render_tool_item(item, placeholders, current_idx)
+                        current_idx += 1 # 도구 아이템 처리 후 인덱스 증가
+                    else:
+                        self.logger.warning(f"Placeholder index {current_idx} out of range before calling _render_tool_item")
+                        # 오류 처리 또는 fallback 렌더링 (예: 일반 markdown)
+                        st.markdown(f"**도구: {item.get('name', '')}** (렌더링 오류)")
                     
                 # Handle agent changes
                 elif item_type == "agent_change":
@@ -360,41 +392,48 @@ class MessageRenderer:
             # Render plain content
             st.markdown(str(content))
     
-    def _render_text_item(self, item, agent, placeholders, idx):
-        """Render text message from an agent"""
+    def _render_text_item(self, item, agent):
+        """Render text message content to the appropriate artifact panel."""
         if agent == "passage_editor":
             with self.passage_placeholder:
                 st.markdown(item["content"], unsafe_allow_html=True)
         elif agent == "question_editor":
             with self.question_placeholder:
                 st.markdown(item["content"], unsafe_allow_html=True)
-        else:
-            # Check if index is within bounds
-            if idx < len(placeholders):
-                with placeholders[idx].container(border=False):
-                    st.markdown(item["content"], unsafe_allow_html=True)
-            else:
-                st.markdown(item["content"], unsafe_allow_html=True)
     
     def _render_tool_item(self, item, placeholders, idx):
-        """Render tool execution results"""
+        """Render tool execution results according to final desired state."""
         tool_name = item.get("name", "도구 실행 결과")
+        tool_content = item.get("content", "") # Get content for mermaid
         
-        # mermaid_tool 특별 처리
-        if tool_name == "mermaid_tool":
-            with placeholders[idx].expander(f"📊 개념 지도", expanded=True):
-                # streamlit-mermaid 라이브러리 사용 (상단에 import 되어 있음)
-                mermaid_key = f"mermaid_render_{uuid.uuid4()}"  # 고유한 키 생성
-                stmd.st_mermaid(item["content"], key=mermaid_key)
-                
-        elif tool_name in ["handoff_for_agent", "handoff_for_supervisor"]:
-            # Display handoffs in borderless container
-            with placeholders[idx].container(border=False):
-                st.markdown(item["content"])
+        # Get friendly name for display
+        friendly_tool_name = self._get_friendly_tool_name(tool_name)
+        
+        # Check if index is within bounds
+        if idx >= len(placeholders):
+            self.logger.warning(f"User [{st.session_state.get('username', 'anonymous')}]: Placeholder index {idx} out of range in _render_tool_item")
+            # Fallback rendering if out of bounds
+            st.warning(f"도구 표시 오류: {friendly_tool_name}") # Use friendly name here
+            return
+            
+        # Mermaid 도구: 확장된 완료 상태로 표시
+        if tool_name == "mermaid_tool": # 내부 로직은 원래 이름 사용 유지
+            with placeholders[idx].status(f"📊 개념 지도", state="complete", expanded=True):
+                # --- Mermaid 렌더링 로직 복원 ---
+                try:
+                    mermaid_key = f"mermaid_render_{uuid.uuid4()}"
+                    stmd.st_mermaid(tool_content, key=mermaid_key)
+                    self.logger.info(f"User [{st.session_state.get('username', 'anonymous')}]: Mermaid 도구 결과 표시: {tool_name}")
+                except Exception as e:
+                    st.error(f"Mermaid 렌더링 중 오류 발생: {e}")
+                    st.code(tool_content)
+                    self.logger.error(f"Mermaid 렌더링 오류: {e}", exc_info=True)
+                # --- --------------------- ---
         else:
-            # Display other tools in expander
-            with placeholders[idx].expander(f"🛠️ {tool_name} 도구를 사용합니다.", expanded=False):
-                st.code(item["content"])
+            # 그 외 모든 도구: 축소된 완료 상태로 표시 (내용 숨김)
+            current_placeholder = placeholders[idx]
+            # Placeholder를 사용하여 완료 상태, 축소된 형태로 표시
+            current_placeholder.status(f"{friendly_tool_name} 완료", state="complete", expanded=False)
 
 # Backend Communication
 class BackendClient:
@@ -407,6 +446,16 @@ class BackendClient:
         self.question_placeholder = question_placeholder
         self.response_status = response_status
         self.logger = logging.getLogger(__name__)
+
+    def _get_friendly_tool_name(self, tool_name):
+        """Translate internal tool names to user-friendly names."""
+        if tool_name == "retrieve_data":
+            return "기출 DB 검색"
+        elif tool_name == "subject_collection":
+            return "기출 주제 조회"
+        # 다른 도구 이름 변환 규칙 추가 가능
+        return tool_name
+
     def send_message(self, prompt, session_id):
         """Send a message to the backend and process streaming response"""
         with self.chat_container:
@@ -455,184 +504,160 @@ User: {user_id}
         current_agent = "supervisor"
         artifact_type = "chat"
         has_ended = False  # 정상 종료 여부 추적
-        
-        logger = logging.getLogger(__name__)        
-        
+
+        # 이전 도구 상태 업데이트를 위한 정보 저장 변수
+        pending_tool_status_update: Dict[str, Any] | None = None
+
         try:
             # 초기 상태 설정
             with self.chat_container:
                 self.response_status.update(label="에이전트 응답 중...", state="running")
-            
-            # for line in response.iter_lines(decode_unicode=True):
+
             for line in response.iter_lines(decode_unicode=True):
                 if not line:
                     continue
-                
+
                 try:
-                    # Parse event data
-                    #payload = self._parse_stream_line(line)
+                    # --- 이전 도구 상태 업데이트 (매 루프 시작 시) ---
+                    if pending_tool_status_update is not None:
+                        prev_tool_name = pending_tool_status_update["tool_name"]
+                        status_obj = pending_tool_status_update["status_obj"]
+                        # Get friendly name for display
+                        friendly_prev_tool_name = self._get_friendly_tool_name(prev_tool_name)
+                        try:
+                            # 레이블에 ' 실행 완료' 다시 추가
+                            status_obj.update(label=f"{friendly_prev_tool_name} 완료", state="complete", expanded=False)
+                            self.logger.info(f"Updating previous tool status to complete: {friendly_prev_tool_name} (Trigger: new line)") # Log friendly name
+                        except Exception as e:
+                            self.logger.error(f"Error updating tool status ({friendly_prev_tool_name}): {e}", exc_info=True) # Log friendly name
+                        pending_tool_status_update = None # 업데이트 완료
+
+                    # --- 현재 라인 처리 ---
                     payload = json.loads(line)
                     msg_type = payload.get("type", "message")
                     text = payload.get("text", "")
                     agent = payload.get("response_agent", "unknown")
-                    
-                    # 스트림 종료 메시지 특별 처리 (서버는 항상 마지막에 type=end, agent=system 보냄)
+
+                    # --- 스트림 종료 처리 ---
                     if msg_type == "end" and agent == "system":
-                        # 현재 텍스트가 있으면 반드시 최종 업데이트 수행
-                        if current_text:
+                        # (상태 업데이트 로직은 루프 시작 시 처리됨)
+                        if current_text: # 남은 텍스트 처리
                             self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                            message_data["messages"].append({
-                                "type": "text",
-                                "content": current_text,
-                                "agent": current_agent
-                            })
-                            logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\n{current_text}')
-                            current_idx += 1
-                            current_text = ""  # 텍스트 초기화 (중요)
-                            
-                        # 종료 메시지 표시
-                            with placeholders[current_idx].container(border=False):
-                                st.success("에이전트의 응답이 종료되었습니다.")
-                            
-                        # 종료 메시지 표시
-                        # with placeholders[current_idx].container(border=False):
-                        #     st.success("에이전트의 응답이 종료되었습니다.")
-                        self.response_status.update(label="에이전트의 응답이 종료되었습니다.", state="complete")
-                        
-                        message_data["messages"].append({
-                            "type": "agent_change",
-                            "agent": "system",
-                            "info": "end"
-                        })
-                        
-                        has_ended = True  # 정상 종료 표시
-                        break
-                    
-                    # 에러 메시지 처리
-                    elif msg_type == "error":
-                        # 현재 텍스트가 있으면 저장
-                        if current_text:
-                            self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                            logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\n{current_text}')
-                            # 에러 메시지 표시
-                            with placeholders[current_idx].container(border=False):
-                                st.error(text)
-                            # 이전 텍스트 저장
-                            message_data["messages"].append({
-                                "type": "text",
-                                "content": current_text,
-                                "agent": current_agent
-                            })
+                            message_data["messages"].append({"type": "text", "content": current_text, "agent": current_agent})
+                            self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\\n{current_text}')
                             current_idx += 1
                             current_text = ""
-                        
-                        # 에러 메시지 표시
+
+                        self.response_status.update(label="에이전트의 응답이 종료되었습니다.", state="complete")
+                        message_data["messages"].append({"type": "agent_change", "agent": "system", "info": "end"})
+                        has_ended = True
+                        break
+
+                    # --- 에러 메시지 처리 ---
+                    elif msg_type == "error":
+                        # (상태 업데이트 로직은 루프 시작 시 처리됨)
+                        if current_text: # 남은 텍스트 처리
+                            self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
+                            self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\\n{current_text}')
+                            message_data["messages"].append({"type": "text", "content": current_text, "agent": current_agent})
+                            current_idx += 1
+                            current_text = ""
+
                         self.response_status.update(label="에러 발생 : " + text, state="error")
-                        
-                        message_data["messages"].append({
-                            "type": "agent_change",
-                            "agent": "system",
-                            "info": "error",
-                            "content": text
-                        })
+                        message_data["messages"].append({"type": "agent_change", "agent": "system", "info": "error", "content": text})
+                        with placeholders[current_idx].container(border=False):
+                            st.error(text)
                         current_idx += 1
                         continue
-                    
-                    # 일반 에이전트 변경 처리
+
+                    # --- 에이전트 변경 처리 ---
                     if agent != current_agent:
-                        # 현재 텍스트가 있으면 저장
-                        if current_text:
-                            logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\n{current_text}')
-                            self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                            message_data["messages"].append({
-                                "type": "text",
-                                "content": current_text,
-                                "agent": current_agent
-                            })
-                            current_idx += 1
-                            current_text = ""
-                        
-                        # system 에이전트가 아닌 경우만 에이전트 변경 메시지 표시
-                        if agent != "system":
-                            logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 변경:{current_agent} to {agent}')
+                        # (상태 업데이트 로직은 루프 시작 시 처리됨)
+                        if current_text: # 남은 텍스트 처리
+                           self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
+                           self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\\n{current_text}')
+                           message_data["messages"].append({"type": "text", "content": current_text, "agent": current_agent})
+                           current_idx += 1
+                           current_text = ""
+
+                        if agent != "system": # 에이전트 변경 메시지 표시
+                            self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 변경:{current_agent} to {agent}')
                             with placeholders[current_idx].container(border=False):
                                 st.info(f"{agent} 에이전트에게 통제권을 전달합니다.")
-                            
-                            message_data["messages"].append({
-                                "type": "agent_change",
-                                "agent": agent,
-                                "info": "handoff"
-                            })
+                            message_data["messages"].append({"type": "agent_change","agent": agent,"info": "handoff"})
                             current_idx += 1
-                        
-                        current_agent = agent
-                    
-                    # 아티팩트 타입 결정
+                        current_agent = agent # current_agent 업데이트
+
                     artifact_type = self._determine_artifact_type(agent)
-                    
-                    # 메시지 유형별 처리
+
+                    # --- 메시지 유형별 처리 ---
                     if msg_type == "message":
-                        # 텍스트 누적
+                        # (상태 업데이트 로직은 루프 시작 시 처리됨)
                         current_text += text
-                        # 아티팩트 업데이트 (진행 중)
                         self._update_artifact(current_text, artifact_type, placeholders, current_idx)
-                        
+
                     elif msg_type == "tool":
-                        # 현재 텍스트가 있으면 저장
+                        # (상태 업데이트 로직은 루프 시작 시 처리됨)
                         if current_text:
-                            self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                            logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\n{current_text}')
-                            message_data["messages"].append({
-                                "type": "text",
-                                "content": current_text,
-                                "agent": current_agent
-                            })
-                            current_idx += 1
-                            current_text = ""
-                        
-                        # 도구 실행 결과 표시
-                        tool_name = payload.get("tool_name")
-                        
-                        # mermaid_tool 특별 처리
-                        if tool_name == "mermaid_tool":
-                            with placeholders[current_idx].expander(f"📊 개념 지도", expanded=True):
-                                # streamlit-mermaid 라이브러리 사용 (상단에 import 되어 있음)
-                                mermaid_key = f"mermaid_render_{uuid.uuid4()}"  # 고유한 키 생성
-                                stmd.st_mermaid(text, key=mermaid_key)
-                        else:
-                            with placeholders[current_idx].expander(f"🛠️ {tool_name} 도구를 사용합니다.", expanded=False):
-                                st.code(text)
-                        
-                        # 도구 실행 결과 저장
+                           self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
+                           self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\\n{current_text}')
+                           message_data["messages"].append({"type": "text", "content": current_text, "agent": current_agent})
+                           current_idx += 1
+                           current_text = ""
+
+                        tool_name = payload.get("tool_name", "도구")
+                        tool_content = text
+
+                        # Get friendly name for display
+                        friendly_tool_name = self._get_friendly_tool_name(tool_name)
+
                         message_data["messages"].append({
                             "type": "tool",
                             "name": tool_name,
-                            "content": text,
+                            "content": tool_content,
                             "agent": current_agent
                         })
-                        current_idx += 1
-                    
+
+                        if tool_name == "mermaid_tool":
+                            with placeholders[current_idx].status(f"📊 개념 지도", state="complete", expanded=True):
+                                # --- Mermaid 렌더링 로직 --- # (이전에 복원됨)
+                                try:
+                                    mermaid_key = f"mermaid_render_{uuid.uuid4()}"
+                                    stmd.st_mermaid(tool_content, key=mermaid_key)
+                                    self.logger.info(f"User [{st.session_state.get('username', 'anonymous')}]: Mermaid 도구 결과 표시: {tool_name}")
+                                except Exception as e:
+                                    st.error(f"Mermaid 렌더링 중 오류 발생: {e}")
+                                    st.code(tool_content)
+                                    self.logger.error(f"Mermaid 렌더링 오류: {e}", exc_info=True)
+                            current_idx += 1
+                        else:
+                            # '실행 중' 상태로 생성 및 pending_tool_status_update 설정
+                            current_placeholder = placeholders[current_idx]
+                            # 레이블에 ' 실행 중...' 다시 추가
+                            status_obj = current_placeholder.status(f"{friendly_tool_name} 중...", state="running", expanded=False)
+                            # Store the ORIGINAL tool_name in pending update for logic, but we'll use friendly name on update
+                            pending_tool_status_update = { "tool_name": tool_name, "status_obj": status_obj }
+                            current_idx += 1
+
                 except json.JSONDecodeError as e:
                     self._handle_json_error(e, line, placeholders, current_idx)
-                    current_idx += 1
                 except Exception as e:
                     self._handle_stream_error(e, placeholders, current_idx)
-                    current_idx += 1
+                    # current_idx += 1
             
-            # 비정상 종료 시에만 현재 텍스트 저장 (정상 종료는 이미 처리됨)
+            # --- 스트림 루프 종료 후 처리 --- 
+            # 루프가 정상/비정상 종료되었을 때 마지막 텍스트 처리
             if not has_ended and current_text:
-                logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\n{current_text}')
-                self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                message_data["messages"].append({
-                    "type": "text",
-                    "content": current_text,
-                    "agent": current_agent
-                })
+                 self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
+                 self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 최종 에이전트 응답:{current_agent}\\n{current_text}')
+                 message_data["messages"].append({"type": "text","content": current_text,"agent": current_agent})
+                 current_idx += 1 # 마지막 텍스트 추가 후 인덱스 증가
         
         finally:
-            # 스트리밍 종료 시 플래그 해제 (정상/오류 종료 모두)
+            # 스트림 종료 시 최종 처리 (종료/에러 블록에서 이미 처리됨)
             st.session_state.is_streaming = False
-            logger.info("스트리밍 종료/중단, is_streaming = False")
+            self.logger.info("스트리밍 종료/중단, is_streaming = False")
+
         return message_data
     
     def _parse_stream_line(self, line):
@@ -814,7 +839,7 @@ def show_main_app(config, logger):
     
     
     # --- Helper 생성 ---
-    message_renderer = MessageRenderer(chat_container, passage_placeholder, question_placeholder)
+    message_renderer = MessageRenderer(chat_container, passage_placeholder, question_placeholder, logger)
     backend_client = BackendClient(config.backend_url, chat_container, passage_placeholder, question_placeholder, response_status)
 
     # 첫 메시지일 경우, 환영 메시지 표시
@@ -861,7 +886,22 @@ def show_main_app(config, logger):
         
         # 5. UI 업데이트를 위한 rerun
         logger.info("프롬프트 처리 완료. UI 업데이트 위해 rerun 호출.")
-        #st.rerun()
+
+        # 자동 스크롤 JS 추가
+        js = f"""
+        <script>
+            function scroll(dummy_var_to_force_repeat_execution){{
+                var textAreas = parent.document.querySelectorAll('section.main');
+                if (textAreas.length > 0) {{
+                    textAreas[0].scrollTop = textAreas[0].scrollHeight;
+                }}
+            }}
+            scroll({len(st.session_state.get('messages', []))});
+        </script>
+        """
+        st.components.v1.html(js, height=0) # height=0으로 설정하여 공간 차지 안 함
+
+        st.rerun() # st.rerun()은 JS 코드 추가 이후에 호출
 
 # Application Entry Point
 def main():
