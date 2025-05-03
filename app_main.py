@@ -347,7 +347,6 @@ class MessageRenderer:
                         if item_info == "end":
                             with placeholders[current_idx].container(border=False):
                                 st.success("에이전트의 응답이 종료되었습니다.")
-                                logger.info("에이전트의 응답이 종료되었습니다.")
                         elif item_info == "error":
                             with placeholders[current_idx].container(border=False):
                                 st.error(item_content)
@@ -862,7 +861,7 @@ def show_main_app(config, logger):
         
         # 5. UI 업데이트를 위한 rerun
         logger.info("프롬프트 처리 완료. UI 업데이트 위해 rerun 호출.")
-        st.rerun()
+        #st.rerun()
 
 # Application Entry Point
 def main():
