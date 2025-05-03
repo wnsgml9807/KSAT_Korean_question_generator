@@ -756,7 +756,8 @@ def show_main_app(config, logger):
         col1, col2, col3 = st.columns([1, 1.3, 1]) # 비율 조절 가능 (예: [1, 2, 1])
 
         with col2: # 가운데 컬럼 사용
-            st.title("🔐 로그인")
+            st.title("KSAT Agent")
+            st.subheader("🔐 로그인")
 
             input_username = st.text_input("username", key="login_username", value="admin", placeholder="사용자 이름" ) # 키 추가/변경
             input_password = st.text_input("key", type="password", key="login_password", value="1111", placeholder="4자리 숫자") # 키 추가/변경
