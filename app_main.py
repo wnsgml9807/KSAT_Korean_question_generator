@@ -154,6 +154,12 @@ class UI:
             font-weight: 500;
             margin-bottom: 1.5em;
         }
+        /* <보기> 내 중첩 테이블 폰트 설정 */
+        .question-font table tr td table {
+            font-family: '돋움', Dotum, sans-serif !important; /* 돋움 폰트 적용, 없을 시 sans-serif */
+            font-size: 0.95em; /* 기본 폰트보다 약간 작게 설정 (선택 사항) */
+            /* line-height: 1.5em; /* 줄 간격 조정 (선택 사항) */
+        }
         </style>
         """, unsafe_allow_html=True)
     
