@@ -158,7 +158,8 @@ class UI:
         .question-font table tr td table {
             font-family: '돋움', Dotum, sans-serif !important; /* 돋움 폰트 적용, 없을 시 sans-serif */
             font-size: 0.95em; /* 기본 폰트보다 약간 작게 설정 (선택 사항) */
-            /* line-height: 1.5em; /* 줄 간격 조정 (선택 사항) */
+            line-height: 1em; /* 줄 간격 조정 (선택 사항) */
+            font-weight: 500;
         }
         </style>
         """, unsafe_allow_html=True)
