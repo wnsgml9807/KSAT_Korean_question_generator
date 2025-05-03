@@ -183,28 +183,28 @@ class UI:
             
             # --- 사이드바에서 높이 감지 및 세션 상태 업데이트 ---
             # 스트리밍 중이 아닐 때만 화면 크기 감지 실행
-            if not st.session_state.get("is_streaming", False):
-                try:
-                    screen_data = ScreenData()
-                    stats = screen_data.st_screen_data() # 컴포넌트 로딩 및 값 가져오기
+            # if not st.session_state.get("is_streaming", False):
+            #     try:
+            #         screen_data = ScreenData()
+            #         stats = screen_data.st_screen_data() # 컴포넌트 로딩 및 값 가져오기
 
-                    if stats and "innerHeight" in stats:
-                        height = stats.get("innerHeight")
-                        if height is not None and isinstance(height, (int, float)) and height > 0:
-                            # 세션 상태에 최신 높이 저장/업데이트 (현재 높이와 다를 경우에만 업데이트 고려 가능)
-                            if st.session_state.get("viewport_height") != height:
-                                st.session_state.viewport_height = height
-                                # logger.info(f"사이드바에서 뷰포트 높이 업데이트: {height}px") # 변경 시에만 로깅
-                        else:
-                            logger.warning(f"사이드바: 수신된 높이 값 유효하지 않음: {height}")
-                    else:
-                         logger.warning(f"사이드바: innerHeight 찾을 수 없음: {stats}")
-                except Exception as e:
-                    logger.error(f"사이드바: 화면 데이터 얻기 실패: {str(e)}")
-                    # 오류 발생 시에도 세션 상태에 viewport_height가 없으면 기본값 설정
-                    if "viewport_height" not in st.session_state:
-                         st.session_state.viewport_height = 800 # 기본값 설정
-                    # logger.info(f"사이드바: 화면 데이터 얻기 실패, 현재 세션/기본 높이: {st.session_state.viewport_height}px")
+            #         if stats and "innerHeight" in stats:
+            #             height = stats.get("innerHeight")
+            #             if height is not None and isinstance(height, (int, float)) and height > 0:
+            #                 # 세션 상태에 최신 높이 저장/업데이트 (현재 높이와 다를 경우에만 업데이트 고려 가능)
+            #                 if st.session_state.get("viewport_height") != height:
+            #                     st.session_state.viewport_height = height
+            #                     # logger.info(f"사이드바에서 뷰포트 높이 업데이트: {height}px") # 변경 시에만 로깅
+            #             else:
+            #                 logger.warning(f"사이드바: 수신된 높이 값 유효하지 않음: {height}")
+            #         # else:
+            #         #      logger.warning(f"사이드바: innerHeight 찾을 수 없음: {stats}")
+            #     except Exception as e:
+            #         logger.error(f"사이드바: 화면 데이터 얻기 실패: {str(e)}")
+            #         # 오류 발생 시에도 세션 상태에 viewport_height가 없으면 기본값 설정
+            #         if "viewport_height" not in st.session_state:
+            #              st.session_state.viewport_height = 800 # 기본값 설정
+            #         # logger.info(f"사이드바: 화면 데이터 얻기 실패, 현재 세션/기본 높이: {st.session_state.viewport_height}px")
 
             # 현재 세션의 높이 값 확인 (디버깅용, 로깅 불필요 시 주석 처리)
             # current_height_in_state = st.session_state.get("viewport_height", 800)
@@ -423,7 +423,7 @@ class MessageRenderer:
                 try:
                     mermaid_key = f"mermaid_render_{uuid.uuid4()}"
                     stmd.st_mermaid(tool_content, key=mermaid_key)
-                    self.logger.info(f"User [{st.session_state.get('username', 'anonymous')}]: Mermaid 도구 결과 표시: {tool_name}")
+                    self.logger.info(f"User [{st.session_state.get('username', 'anonymous')}]: Mermaid 도구 결과 표시")
                 except Exception as e:
                     st.error(f"Mermaid 렌더링 중 오류 발생: {e}")
                     st.code(tool_content)
@@ -468,11 +468,7 @@ class BackendClient:
             # 사용자 이름 가져오기 (로그 추적용)
             user_id = st.session_state.get("username", "anonymous") # 로그인 안 된 경우 대비
 
-            self.logger.info(f"""백엔드 요청 전송됨
-User: {user_id}
-세션 ID: {session_id}
-프롬프트:
-{prompt}""")
+            self.logger.info(f"""백엔드 요청 전송됨/User: {user_id}/프롬프트: {prompt}""")
 
             try:
                 # Setup the API request
@@ -624,7 +620,7 @@ User: {user_id}
                                 try:
                                     mermaid_key = f"mermaid_render_{uuid.uuid4()}"
                                     stmd.st_mermaid(tool_content, key=mermaid_key)
-                                    self.logger.info(f"User [{st.session_state.get('username', 'anonymous')}]: Mermaid 도구 결과 표시: {tool_name}")
+                            
                                 except Exception as e:
                                     st.error(f"Mermaid 렌더링 중 오류 발생: {e}")
                                     st.code(tool_content)
@@ -656,7 +652,6 @@ User: {user_id}
         finally:
             # 스트림 종료 시 최종 처리 (종료/에러 블록에서 이미 처리됨)
             st.session_state.is_streaming = False
-            self.logger.info("스트리밍 종료/중단, is_streaming = False")
 
         return message_data
     
@@ -883,9 +878,6 @@ def show_main_app(config, logger):
         except Exception as e:
              logger.error(f"백엔드 호출 중 오류 발생: {e}", exc_info=True)
              st.error(f"오류가 발생하여 응답을 처리할 수 없습니다: {e}")
-        
-        # 5. UI 업데이트를 위한 rerun
-        logger.info("프롬프트 처리 완료. UI 업데이트 위해 rerun 호출.")
 
         st.rerun() # st.rerun()은 JS 코드 추가 이후에 호출
 
