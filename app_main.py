@@ -56,12 +56,11 @@ class SessionManager:
         
         if "session_id" not in st.session_state:
             st.session_state.session_id = f"session_{uuid.uuid4()}"
-            logger.info(f"새 세션 ID 생성: {st.session_state.session_id}")
-
+        
         # 뷰포트 높이 초기화 (세션에 없을 경우)
         if "viewport_height" not in st.session_state:
             st.session_state.viewport_height = 800 # 기본 높이 설정
-
+        
         # 스트리밍 상태 플래그 초기화
         if "is_streaming" not in st.session_state:
             st.session_state.is_streaming = False
