@@ -53,7 +53,6 @@ class SessionManager:
         """Initialize session state variables if they don't exist"""
         if "messages" not in st.session_state:
             st.session_state.messages = []
-            logger.info("세션 상태에 'messages' 초기화")
         
         if "session_id" not in st.session_state:
             st.session_state.session_id = f"session_{uuid.uuid4()}"
@@ -62,22 +61,18 @@ class SessionManager:
         # 뷰포트 높이 초기화 (세션에 없을 경우)
         if "viewport_height" not in st.session_state:
             st.session_state.viewport_height = 800 # 기본 높이 설정
-            logger.info(f"세션 상태에 'viewport_height' 초기화: {st.session_state.viewport_height}px")
 
         # 스트리밍 상태 플래그 초기화
         if "is_streaming" not in st.session_state:
             st.session_state.is_streaming = False
-            logger.info("세션 상태에 'is_streaming' 초기화: False")
         
         if "input" not in st.session_state:
             st.session_state.input = None
-            logger.info("세션 상태에 'input' 초기화: None")
 
         # 로그인 상태 초기화 추가
         if 'logged_in' not in st.session_state:
             st.session_state['logged_in'] = False
             st.session_state['username'] = None
-            logger.info("세션 상태에 'logged_in', 'username' 초기화")
 
     @staticmethod
     def reset_session(logger):
@@ -87,7 +82,7 @@ class SessionManager:
         current_viewport_height = st.session_state.get("viewport_height")
         # 로그인 사용자 정보 로깅 추가
         current_user = st.session_state.get('username', 'anonymous')
-        logger.info(f"User [{current_user}]: 세션 리셋 요청. 유지 항목: session_id={current_session_id}, viewport_height={current_viewport_height}")
+        logger.info(f"User [{current_user}]: 세션 리셋 요청.")
 
         # Clear all other session state variables
         keys_to_clear = list(st.session_state.keys())
@@ -101,7 +96,6 @@ class SessionManager:
         st.session_state.is_streaming = False
         st.session_state['logged_in'] = False # 리셋 시 로그아웃 상태로
         st.session_state['username'] = None
-        logger.info("메시지, 로그인 상태 등 다른 세션 변수 초기화 완료 (session_id, viewport_height 유지됨)")
 
     @staticmethod
     def add_message(role, content):
@@ -183,28 +177,24 @@ class UI:
             
             # --- 사이드바에서 높이 감지 및 세션 상태 업데이트 ---
             # 스트리밍 중이 아닐 때만 화면 크기 감지 실행
-            # if not st.session_state.get("is_streaming", False):
-            #     try:
-            #         screen_data = ScreenData()
-            #         stats = screen_data.st_screen_data() # 컴포넌트 로딩 및 값 가져오기
+            if not st.session_state.get("is_streaming", False):
+                try:
+                    screen_data = ScreenData()
+                    stats = screen_data.st_screen_data() # 컴포넌트 로딩 및 값 가져오기
 
-            #         if stats and "innerHeight" in stats:
-            #             height = stats.get("innerHeight")
-            #             if height is not None and isinstance(height, (int, float)) and height > 0:
-            #                 # 세션 상태에 최신 높이 저장/업데이트 (현재 높이와 다를 경우에만 업데이트 고려 가능)
-            #                 if st.session_state.get("viewport_height") != height:
-            #                     st.session_state.viewport_height = height
-            #                     # logger.info(f"사이드바에서 뷰포트 높이 업데이트: {height}px") # 변경 시에만 로깅
-            #             else:
-            #                 logger.warning(f"사이드바: 수신된 높이 값 유효하지 않음: {height}")
-            #         # else:
-            #         #      logger.warning(f"사이드바: innerHeight 찾을 수 없음: {stats}")
-            #     except Exception as e:
-            #         logger.error(f"사이드바: 화면 데이터 얻기 실패: {str(e)}")
-            #         # 오류 발생 시에도 세션 상태에 viewport_height가 없으면 기본값 설정
-            #         if "viewport_height" not in st.session_state:
-            #              st.session_state.viewport_height = 800 # 기본값 설정
-            #         # logger.info(f"사이드바: 화면 데이터 얻기 실패, 현재 세션/기본 높이: {st.session_state.viewport_height}px")
+                    if stats and "innerHeight" in stats:
+                        height = stats.get("innerHeight")
+                        if height is not None and isinstance(height, (int, float)) and height > 0:
+                            # 세션 상태에 최신 높이 저장/업데이트 (현재 높이와 다를 경우에만 업데이트 고려 가능)
+                            if st.session_state.get("viewport_height") != height:
+                                st.session_state.viewport_height = height
+                        else:
+                            pass
+                except Exception as e:
+                    pass
+                    # 오류 발생 시에도 세션 상태에 viewport_height가 없으면 기본값 설정
+                    if "viewport_height" not in st.session_state:
+                         st.session_state.viewport_height = 800 # 기본값 설정
 
             # 현재 세션의 높이 값 확인 (디버깅용, 로깅 불필요 시 주석 처리)
             # current_height_in_state = st.session_state.get("viewport_height", 800)
@@ -369,9 +359,7 @@ class MessageRenderer:
                         self._render_tool_item(item, placeholders, current_idx)
                         current_idx += 1 # 도구 아이템 처리 후 인덱스 증가
                     else:
-                        self.logger.warning(f"Placeholder index {current_idx} out of range before calling _render_tool_item")
-                        # 오류 처리 또는 fallback 렌더링 (예: 일반 markdown)
-                        st.markdown(f"**도구: {item.get('name', '')}** (렌더링 오류)")
+                        st.warning(f"도구 표시 오류: {self._get_friendly_tool_name(item.get('name', ''))}")
                     
                 # Handle agent changes
                 elif item_type == "agent_change":
@@ -411,9 +399,7 @@ class MessageRenderer:
         
         # Check if index is within bounds
         if idx >= len(placeholders):
-            self.logger.warning(f"User [{st.session_state.get('username', 'anonymous')}]: Placeholder index {idx} out of range in _render_tool_item")
-            # Fallback rendering if out of bounds
-            st.warning(f"도구 표시 오류: {friendly_tool_name}") # Use friendly name here
+            st.warning(f"도구 표시 오류: {friendly_tool_name}")
             return
             
         # Mermaid 도구: 확장된 완료 상태로 표시
@@ -423,7 +409,6 @@ class MessageRenderer:
                 try:
                     mermaid_key = f"mermaid_render_{uuid.uuid4()}"
                     stmd.st_mermaid(tool_content, key=mermaid_key)
-                    self.logger.info(f"User [{st.session_state.get('username', 'anonymous')}]: Mermaid 도구 결과 표시")
                 except Exception as e:
                     st.error(f"Mermaid 렌더링 중 오류 발생: {e}")
                     st.code(tool_content)
@@ -468,7 +453,8 @@ class BackendClient:
             # 사용자 이름 가져오기 (로그 추적용)
             user_id = st.session_state.get("username", "anonymous") # 로그인 안 된 경우 대비
 
-            self.logger.info(f"""백엔드 요청 전송됨/User: {user_id}/프롬프트: {prompt}""")
+            # 핵심 로그: 사용자 입력
+            self.logger.info(f"User [{user_id}]: 프롬프트 전송됨\n{prompt}")
 
             try:
                 # Setup the API request
@@ -480,7 +466,7 @@ class BackendClient:
                     timeout=1200
                 )
                 response.raise_for_status()
-                self.logger.info("백엔드 스트림 연결 성공")
+                # self.logger.info("백엔드 스트림 연결 성공") # 로그 제거
                 
                 # 스트리밍 시작 시 플래그 설정
                 st.session_state.is_streaming = True
@@ -488,9 +474,9 @@ class BackendClient:
                 return self._process_stream(response, placeholders, message_data)
                 
             except requests.exceptions.RequestException as e:
-                return self._handle_request_error(e, placeholders, 0)
+                return self._handle_request_error(e, placeholders, 0) # 에러 처리 및 로깅 유지
             except Exception as e:
-                return self._handle_generic_error(e, placeholders, 0)
+                return self._handle_generic_error(e, placeholders, 0) # 에러 처리 및 로깅 유지
 
     
     def _process_stream(self, response, placeholders, message_data):
@@ -521,11 +507,9 @@ class BackendClient:
                         # Get friendly name for display
                         friendly_prev_tool_name = self._get_friendly_tool_name(prev_tool_name)
                         try:
-                            # 레이블에 ' 실행 완료' 다시 추가
                             status_obj.update(label=f"{friendly_prev_tool_name} 완료", state="complete", expanded=False)
-                            self.logger.info(f"Updating previous tool status to complete: {friendly_prev_tool_name} (Trigger: new line)") # Log friendly name
                         except Exception as e:
-                            self.logger.error(f"Error updating tool status ({friendly_prev_tool_name}): {e}", exc_info=True) # Log friendly name
+                            self.logger.error(f"Error updating tool status ({friendly_prev_tool_name}): {e}", exc_info=True)
                         pending_tool_status_update = None # 업데이트 완료
 
                     # --- 현재 라인 처리 ---
@@ -536,11 +520,11 @@ class BackendClient:
 
                     # --- 스트림 종료 처리 ---
                     if msg_type == "end" and agent == "system":
-                        # (상태 업데이트 로직은 루프 시작 시 처리됨)
                         if current_text: # 남은 텍스트 처리
                             self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
                             message_data["messages"].append({"type": "text", "content": current_text, "agent": current_agent})
-                            self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\\n{current_text}')
+                            # 핵심 로그: 최종 에이전트 응답
+                            self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\n{current_text}')
                             current_idx += 1
                             current_text = ""
 
@@ -551,10 +535,9 @@ class BackendClient:
 
                     # --- 에러 메시지 처리 ---
                     elif msg_type == "error":
-                        # (상태 업데이트 로직은 루프 시작 시 처리됨)
                         if current_text: # 남은 텍스트 처리
                             self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                            self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\\n{current_text}')
+                            self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\n{current_text}')
                             message_data["messages"].append({"type": "text", "content": current_text, "agent": current_agent})
                             current_idx += 1
                             current_text = ""
@@ -568,10 +551,9 @@ class BackendClient:
 
                     # --- 에이전트 변경 처리 ---
                     if agent != current_agent:
-                        # (상태 업데이트 로직은 루프 시작 시 처리됨)
                         if current_text: # 남은 텍스트 처리
                            self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                           self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\\n{current_text}')
+                           self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\n{current_text}')
                            message_data["messages"].append({"type": "text", "content": current_text, "agent": current_agent})
                            current_idx += 1
                            current_text = ""
@@ -588,15 +570,13 @@ class BackendClient:
 
                     # --- 메시지 유형별 처리 ---
                     if msg_type == "message":
-                        # (상태 업데이트 로직은 루프 시작 시 처리됨)
                         current_text += text
                         self._update_artifact(current_text, artifact_type, placeholders, current_idx)
 
                     elif msg_type == "tool":
-                        # (상태 업데이트 로직은 루프 시작 시 처리됨)
                         if current_text:
                            self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                           self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\\n{current_text}')
+                           self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_agent}\n{current_text}')
                            message_data["messages"].append({"type": "text", "content": current_text, "agent": current_agent})
                            current_idx += 1
                            current_text = ""
@@ -616,7 +596,6 @@ class BackendClient:
 
                         if tool_name == "mermaid_tool":
                             with placeholders[current_idx].status(f"📊 개념 지도", state="complete", expanded=True):
-                                # --- Mermaid 렌더링 로직 --- # (이전에 복원됨)
                                 try:
                                     mermaid_key = f"mermaid_render_{uuid.uuid4()}"
                                     stmd.st_mermaid(tool_content, key=mermaid_key)
@@ -636,22 +615,21 @@ class BackendClient:
                             current_idx += 1
 
                 except json.JSONDecodeError as e:
-                    self._handle_json_error(e, line, placeholders, current_idx)
+                    self._handle_json_error(e, line, placeholders, current_idx) # 에러 처리 및 로깅 유지
                 except Exception as e:
-                    self._handle_stream_error(e, placeholders, current_idx)
-                    # current_idx += 1
+                    self._handle_stream_error(e, placeholders, current_idx) # 에러 처리 및 로깅 유지
             
             # --- 스트림 루프 종료 후 처리 --- 
-            # 루프가 정상/비정상 종료되었을 때 마지막 텍스트 처리
             if not has_ended and current_text:
                  self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
-                 self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 최종 에이전트 응답:{current_agent}\\n{current_text}')
+                 # 핵심 로그: 최종 에이전트 응답 (스트림 비정상 종료 시)
+                 self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 최종 에이전트 응답:{current_agent}\n{current_text}')
                  message_data["messages"].append({"type": "text","content": current_text,"agent": current_agent})
                  current_idx += 1 # 마지막 텍스트 추가 후 인덱스 증가
         
         finally:
-            # 스트림 종료 시 최종 처리 (종료/에러 블록에서 이미 처리됨)
-            st.session_state.is_streaming = False
+            # st.session_state.is_streaming = False # 로그 제거
+            pass # 로깅 불필요
 
         return message_data
     
@@ -672,7 +650,6 @@ class BackendClient:
         """Update the appropriate artifact based on type"""
         # Check if index is within bounds
         if idx >= len(placeholders):
-            self.logger.warning(f"User [{st.session_state.get('username', 'anonymous')}]: Placeholder index {idx} out of range (max: {len(placeholders)-1})")
             return
             
         if artifact_type == "passage":
@@ -683,7 +660,7 @@ class BackendClient:
             try:
                 placeholders[idx].status(status_text, expanded=False, state=state)
             except Exception as e:
-                self.logger.warning(f"User [{st.session_state.get('username', 'anonymous')}]: 상태 업데이트 실패: {str(e)}")
+                pass
             
             # Update the passage content - 불필요한 div 태그 제거
             with self.passage_placeholder:
@@ -697,7 +674,7 @@ class BackendClient:
             try:
                 placeholders[idx].status(status_text, expanded=False, state=state)
             except Exception as e:
-                self.logger.warning(f"User [{st.session_state.get('username', 'anonymous')}]: 상태 업데이트 실패: {str(e)}")
+                pass
                 
             # Update the question content - 불필요한 div 태그 제거
             with self.question_placeholder:
@@ -711,7 +688,7 @@ class BackendClient:
     def _handle_json_error(self, error, line, placeholders, idx):
         """Handle JSON parsing errors"""
         error_msg = f"JSON 파싱 오류: {str(error)}"
-        self.logger.warning(f"User [{st.session_state.get('username', 'anonymous')}]: JSON 파싱 실패, 데이터 무시: {line[6:]} (오류: {str(error)})")
+        self.logger.error(f"User [{st.session_state.get('username', 'anonymous')}]: JSON 파싱 실패, 데이터 무시: {line} (오류: {str(error)})", exc_info=True)
         
         # Check if index is within bounds
         if idx < len(placeholders):
