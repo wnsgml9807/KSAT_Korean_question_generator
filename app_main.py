@@ -281,7 +281,7 @@ class MessageRenderer:
         """Translate internal tool names to user-friendly names."""
         if tool_name == "retrieve_data":
             return "기출 DB 검색"
-        elif tool_name == "subject_collection":
+        elif tool_name == "retrieve_subject_collection":
             return "기출 주제 조회"
         elif tool_name == "concept_map_manual":
             return "개념 지도 작성 지침 열람"
@@ -440,7 +440,7 @@ class BackendClient:
         """Translate internal tool names to user-friendly names."""
         if tool_name == "retrieve_data":
             return "기출 DB 검색"
-        elif tool_name == "subject_collection":
+        elif tool_name == "retrieve_subject_collection":
             return "기출 주제 조회"
         elif tool_name == "concept_map_manual":
             return "개념 지도 작성 지침 열람"

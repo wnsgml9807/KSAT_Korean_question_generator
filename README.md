@@ -1,7 +1,3 @@
----
-marp: true
----
-
 # KSAT Agent
 _Multi-Agent 기반 수능 국어 독서 영역 출제 자동화 시스템_
 
@@ -70,17 +66,14 @@ KSAT Agent는 고품질의 수능 국어 독서 지문 세트를 **약 10분 안
 
 #### 에이전트 역할 요약
 
-| 단계 | 에이전트 | 사용 모델 | 주요 업무 |
-|------|----------|----------|-----------|
-| **사용자 입력** | 사용자 | - | 초기 주제 및 요구사항 전달 |
-| **주제 구체화** | Subject Collector | GPT-4.1 | 사용자 의도 파악 및 상세 주제/서술 구조 확정 |
-| **총괄 조정** | Supervisor | GPT-4.1 | 전체 절차 지휘 및 에이전트 간 작업 조율 |
-| **연구 분석** | Researcher | Gemini-2.5 Flash | 기출 지문 검색/분석, 관련 자료 수집 및 요약 |
-| **구조 설계** | Architecture | Claude-3.7 | 개념 지도 초안 작성, 문단 배치 및 논리 흐름 설계 |
-| **지문 집필** | Passage Editor | GPT-4.1 (파인튜닝) | 설계안 기반 지문 집필, 개념 지도 구현 |
-| **문항 출제** | Question Editor | Gemini-2.5 Flash | 5지선다 문항 작성 및 선지 변별력 확보 |
-| **검증** | Validator | Gemini-2.5 Flash | 지문/문항의 일관성, 논리 오류, 난이도 등 종합 검토 및 피드백 |
-| **최종 결과물** | 시스템 | - | 완성된 지문, 문항, 해설 세트 |
+| 단계 | 에이전트 그룹 | 주요 업무 |
+|------|----------|-----------|
+| 사용자 입력 | **사용자** | 초기 주제 및 요구사항 전달 |
+| 총괄 및 주제 구체화 | **Supervisor & Subject Collector** | 전체 절차 지휘, 사용자 의도 파악 및 상세 주제/서술 구조 확정 |
+| 연구 및 설계 | **Researcher & Architecture** | 기출 지문 검색/분석, 개념 지도 초안 작성, 문단 배치 및 논리 흐름 설계, 문항 아이디어 구상 |
+| 집필 및 출제 | **Passage Editor & Question Editor** | 설계안 기반 지문 집필, 5지선다 문항 및 해설 초안 작성 |
+| 검증 | **Validator** | 지문/문항의 일관성, 논리 오류, 난이도 등 종합 검토 및 피드백/최종 승인 |
+| 최종 결과물 | **시스템** | 완성된 지문, 문항, 해설 세트 |
 
 *Validator가 "통과" 판정을 내리면 작업이 종료됩니다. Validator의 피드백에 따라 Supervisor는 이전 단계의 에이전트에게 재작업을 지시할 수 있습니다.
 
@@ -354,7 +347,7 @@ KSAT Agent는 자체 개발한 **개념 지도**를 통해 이러한 정성적 �
 ### 6️⃣ 지문 작성용 LLM 파인튜닝
 
 **Problem** 
-> "본질적으로 '쉽고 직관적으로' 설명하도록 학습된 LLM 모델의 특성 상,
+> "본질적으로 '쉽고 직관적으로' 설명하도록 학습된 LLM 모델의 특성 상,<br>
 > 프롬프트만으로 정보의 밀도와 독해 난이도를 극적으로 향상시키기에는 한계가 있다고 느꼈다."
 
 따라서 다음의 데이터 파이프라인을 구축하여 소규모 파인튜닝을 진행한 결과, 지문 퀄리티를 극적으로 향상시킬 수 있었다. (이 과정은 `Parser/` 및 별도 스크립트를 통해 진행)
@@ -499,27 +492,18 @@ async def chat_stream_endpoint(request: ChatRequest):
 
 KSAT Agent 백엔드 시스템은 안정적이고 확장 가능한 운영을 위해 다음과 같은 환경으로 구성되어 있습니다.
 
-| 구성 요소 | 설명 | 주요 기능 |
-|----------|------|-----------|
-| **실행 환경** | Docker 컨테이너 + GCP 가상머신 | • 개발/운영 환경 일관성 유지<br>• 종속성 격리<br>• 간편한 배포 및 확장 |
-| **프로세스 관리** | Supervisor | • 서버 프로세스 자동 관리<br>• 예기치 않은 종료 시 재시작<br>• 로그 수집 및 모니터링 |
-| **CI/CD 체계** | GitHub Actions | • main 브랜치 변경 감지<br>• 자동 빌드 및 배포<br>• 서버 코드 동기화 |
+*   **실행 환경**: 애플리케이션은 Docker 컨테이너로 패키징되어, GCP (Google Cloud Platform) Compute Engine VM 인스턴스에서 실행됩니다. 이를 통해 개발 환경과 운영 환경의 일관성을 유지하고 배포를 용이하게 합니다.
 
-**인프라 구성 파일**
+*   **프로세스 관리**: 컨테이너 내부에서는 Supervisor가 메인 애플리케이션 서버 프로세스(Uvicorn 기반 FastAPI 서버)를 관리합니다. Supervisor는 애플리케이션의 예상치 못한 종료 시 자동으로 재시작하여 서비스의 안정성을 높이며, 로그 관리 기능을 제공합니다.
 
-```
-backend/
-├── Dockerfile            # 백엔드 컨테이너 정의
-├── docker-compose.yaml   # 컨테이너 구성 및 네트워크 설정
-├── supervisord.conf      # 프로세스 관리 설정
-├── requirements.txt      # Python 종속성
-└── .env                  # 환경 변수 (Git 제외)
+*   **지속적 통합 및 배포 (CI/CD)**: GitHub Actions를 활용하여 CI/CD 파이프라인을 구축했습니다. GitHub 저장소의 `main` 브랜치에 코드가 푸시되면, GitHub Actions가 자동으로 VM 서버에 접속하여 최신 코드를 가져오고, Docker 이미지를 재빌드한 후 컨테이너를 재시작합니다. 이 자동화된 프로세스는 신속하고 일관된 배포를 보장합니다.
 
-frontend/
-└── requirements.txt      # Streamlit 앱 종속성
-```
-
-> **참고** : API 키 등 민감 정보는 `.env` 파일로 서버에서 직접 관리되며, Git 저장소에 포함되지 않습니다.
+*   **인프라 구성**:
+    *   **Dockerfile (`backend/`)**: 백엔드 애플리케이션 실행에 필요한 모든 종속성(Python 버전, 라이브러리 등)과 환경 설정을 정의합니다.
+    *   **docker-compose.yaml (`backend/`)**: Docker 컨테이너의 빌드 방식, 포트 매핑, 볼륨 설정, 재시작 정책 등을 정의하여 애플리케이션 실행을 관리합니다.
+    *   **supervisord.conf (`backend/`)**: Supervisor가 관리할 프로세스의 실행 명령어, 자동 시작/재시작 정책, 로그 경로 등을 설정합니다.
+    *   **requirements.txt (`frontend/`, `backend/`)**: 각 애플리케이션의 Python 의존성을 명시합니다.
+    *   **.env (`backend/`)**: API 키와 같은 민감한 환경 변수를 관리합니다. 이 파일은 Git 저장소에 포함되지 않으며, 서버에 직접 설정됩니다.
 
 ---
 ### 8️⃣ 맺음말
@@ -534,154 +518,410 @@ KSAT Agent가 교사와 학생들에게 실질적인 이로움을 가져다 주�
 <br>
 <br>
 
-### :bulb: 부록 : 개념 지도 스키마 v5.0 Docs 
+### :bulb: 부록 : # 개념 지도 스키마 v6.0 매뉴얼
+*수능 독서 고난도 지문 설계를 위한 통합 프레임워크*
 
-_상위권‧고난도 수능 독서 출제를 위한 설계_
+## 1. 개요 및 필요성
 
----
+개념 지도 v6.0은 수능 독서 지문의 **내용적 구조**와 **서술적 구조**를 통합적으로 설계하기 위한 프레임워크입니다. v5.0이 개념 간 관계 구조에 초점을 맞추었다면, v6.0은 여기에 내러티브 흐름과 텐션을 결합하여 더욱 정교한 지문 설계를 가능하게 합니다.
 
-#### 1. 개요 & 필요성  
-고난도 독서 문항은 **단일 사실 확인**이 아닌 *다단계 추론·비판적 비교·관점 충돌*을 요구한다.  
-스키마 v5.0은 이러한 문항을 **그래프 한 ∼ 두 홉** 안에서 근거를 찾고, 세 ∼ 네 홉까지 확장해 종합적 판단이 가능하도록 다음을 목표로 한다.
+### 필요성
 
-| 목표 | 설명 |
-|------|------|
-| **추론 깊이** | 인과·조건·반례·메타평가까지 4-레벨 이상 연쇄 관계 추적 가능 |
-| **관점 대립** | 동일 노드에 대해 *주장·근거·반박·양보*를 구조적으로 표현 |
-| **질적 비교** | "A ↔ B" 단순 비교를 넘어 *우위/열위·준거축*을 명시 |
-| **검증 가능성** | 선지 판별 시 *supporting_sentence* 1-2개면 충분하도록 설계 |
-| **다분야 호환** | 법·정치, 과학·기술, 철학·예술 지문 모두 공통 스키마 사용 |
+1. **평면적 지문 극복**: 단순히 개념들을 나열하는 평면적 서술에서 벗어나 입체적이고 유기적인 지문 설계 가능
+2. **변별력 강화**: 상위권 학생들을 변별할 수 있는 텐션 구조와 암시적 논리 관계 설계 
+3. **통합적 접근**: 지문의 "무엇을"(개념)과 "어떻게"(서술 방식)를 동시에 설계하는 체계 제공
+4. **문항 설계 연계**: 다양한 난이도와 유형의 문항을 효과적으로 설계할 수 있는 기초 제공
 
----
+## 2. v5.0에서 v6.0으로의 주요 변경점
 
-#### 2. 주요 변경점 (v4.1 → v5.0)
-
-| 구분 | v4.1 | v5.0 (신규·변경) |
-|------|------|-----------------|
-| **Edge Type 수** | 15종 | **20종** (5 종 추가) |
-| **Label 수** | 27개 | **38개** |
-| **다중 논증 구조** | supports / contradicts | **argument_unit**, **rebuttal_of**, **conditioned_by** 등 세분화 |
-| **메타 관계** | 부재 | **stance_on**, **uses_framework** → 관점·방법론 표현 |
-| **수량 비교** | is_equal_to 등 3개 | **delta_is_positive/negative** 추가 → 기울기·증감 표현 |
-| **예외·한계** | 없음 | **has_exception**, **has_scope_limit** |
-| **불확실성** | 없음 | **has_probability**, **is_hypothetical** |
-| **노드 속성** | id/label 등 | **tier**(core/support), **discourse_role**(claim/data/warrant) 추가 |
-| **JSON 스키마** | 단일 버전 | **$schema** 필드로 버전 명시, backward-compatible |
-
----
-
-#### 3. 엣지 스키마 v5.0 (총 20 Type / 38 Label)
-
-> **굵게**: v5.0 신규
-
-| Type | Label (필수) | 설명·용례 |
-|------|--------------|-----------|
-| **Hierarchy** | **is_parent_of**, **is_child_of** | 학파·법조문·분류 체계 |
-| Classification | belongs_to | "정신분석 이론 A belongs_to 심리학" |
-| Definition | defines | "도덕 문장 defines 진리 부정" |
-| Composition | has_part | "플라스틱 has_part 결정 영역" |
-| Property | has_attribute | "경영 공시 has_attribute 투명성" |
-| Comparison | is_similar_to, differs_from | 철학 A vs B 비교 |
-| **QuantComparison** | is_greater_than, is_less_than, is_equal_to, **delta_is_positive/negative** | 지지율 증가·감소 등 |
-| Causality | causes, influences | "과산화물 개시제 causes 이중 결합 파괴" |
-| **CounterCausality** | **mitigates**, **exacerbates** | "사외이사 mitigates 폐쇄적 경영" |
-| Conditionality | requires, depends_on | "재판매가격유지 requires 정당한 이유" |
-| **Exception** | **has_exception**, **has_scope_limit** | 여론조사 공표 금지 예외(저작물) |
-| Temporal | occurs_at, before, after | 오존홀 occurs_at 9-11월 |
-| Spatial | is_located_at | 오존홀 is_located_at 남극 성층권 |
-| Purpose | has_purpose, functions_as, uses_means | 스톡옵션 has_purpose 인센티브 |
-| Example | is_example_of | 폴리에틸렌 is_example_of 열가소성 |
-| Reference | refers_to, is_source_of | 문헌 간 인용 |
-| Evaluation | views_as, has_stance | "바쟁 has_stance 몽타주 부정" |
-| Argumentation | supports, contradicts, **rebuttal_of**, **argument_unit** | 복합 논증 트리 |
-| **Methodology** | **uses_framework**, **is_derived_from** | "천두슈 uses_framework 과학 정신" |
-| **Modality** | **is_hypothetical**, **has_probability** | "오존 회복 has_probability 0.8 by 2050" |
-
----
-
-#### 4. 노드 메타데이터 확장
-
-| 필드 | 형식 | 설명 |
+| 구분 | v5.0 | v6.0 |
 |------|------|------|
-| id | string | 고유 ID |
-| label | string | 정규화된 단수 명사 |
-| type | string | concept / process / actor / value 등 |
-| **tier** | core / support | 핵심 채점용 vs 배경 정보 |
-| **discourse_role** | claim / data / warrant / rebuttal / backing | 톤퀸 모델 기반 |
-| description | string | (선택) 요약 |
-| text_span | [int,int] | 원문 위치 |
+| **구조** | 단일 계층 구조 (개념 노드-엣지) | **이중 계층 구조** (문단 노드-엣지 + 개념 노드-엣지) |
+| **내러티브** | 미지원 | **내러티브 패턴, 텐션 곡선** 지원 |
+| **개념 엣지** | 엣지 타입-레이블 체계 | 기존 체계 + **명시적/암시적 구분, 난이도 분류** |
+| **시각화** | 개념 그래프 | 개념 그래프 + **문단 흐름도, 텐션 곡선** |
+| **문단 구조** | 미지원 | **문단 역할, 텐션 수치** 지원 |
+| **표준 형식** | JSON | JSON (확장형) |
 
----
+## 3. 이중 계층 구조
 
-#### 5. JSON Top-Level 구조
+v6.0의 핵심은 **이중 계층 구조**로, 지문을 거시적(문단 레벨)과 미시적(개념 레벨) 관점에서 동시에 설계할 수 있습니다.
+
+```
+[지문]
+  ├── [문단1] --- [문단2] --- [문단3] --- [문단4]  # 문단 노드-엣지 (거시적 구조)
+  │     │           │           │           │
+  │     ▼           ▼           ▼           ▼
+  │  [개념A]      [개념D]      [개념G]      [개념J]  
+  │     │           │           │           │
+  │  [개념B] --- [개념E] --- [개념H] --- [개념K]  # 개념 노드-엣지 (미시적 구조)
+  │     │           │           │           │
+  │  [개념C]      [개념F]      [개념I]      [개념L]
+```
+
+이 구조는 다음과 같은 이점을 제공합니다:
+- 문단 간 논리적 흐름과 개념 간 관계를 분리하여 설계
+- 문단 내 개념 밀도와 텐션을 통제하여 난이도 조절
+- 전체 지문의 내러티브 구조와 텐션 곡선 설계
+
+## 4. 문단 노드 속성 및 구조
+
+문단 노드는 지문의 거시적 구조를 구성하는 기본 단위로, 다음과 같은 속성을 가집니다:
 
 ```json
 {
-  "$schema": "https://kice-graph.org/schema/v5.0",
-  "graph_id": "2025_06_section_8_11",
-  "document_source": {
-    "title": "플라스틱 중합 과정",
-    "source_file": "2025_06_section_8_11.txt",
-    "sections": ["8","9","10","11"]
-  },
-  "nodes": [ /* … */ ],
-  "edges": [ /* … */ ]
+  "id": "p1",                  // 문단 식별자
+  "order": 1,                  // 문단 순서
+  "role": "intro",             // 문단 역할
+  "tension_level": 2,          // 텐션 수치 (1-5)
+  "description": "개념 소개",   // 문단 내용 요약
+  "contains_nodes": ["n1", "n2", "n3"],  // 포함된 개념 노드 ID
+  "primary_concept": "n1"      // 핵심 개념 노드 ID
 }
 ```
 
-* `$schema` 필드는 파서가 v5.0을 인식하도록 필수.  
-* **Backward compatibility** : v4.1 그래프를 v5.0 파서는 idempotent 변환 지원.
+### 문단 역할 유형
 
----
+| 역할 | 설명 | 주요 기능 |
+|------|------|----------|
+| **intro** | 도입 | 주제 소개, 배경 설명, 문제 제기 |
+| **define** | 정의 | 핵심 개념 정의, 용어 설명 |
+| **explain** | 설명 | 원리 분석, 관계 설명, 메커니즘 해설 |
+| **contrast** | 대조 | 상반된 관점 비교, 차이점 분석 |
+| **exemplify** | 예시 | 구체적 사례 제시, 적용 예 소개 |
+| **extend** | 확장 | 개념 심화, 추가 논점 소개 |
+| **challenge** | 도전 | 한계 지적, 반론 제시, 문제 제기 |
+| **synthesize** | 종합 | 논점 통합, 결론 도출 |
+| **conclude** | 결론 | 요약, 의의 및 시사점 제시 |
 
-#### 6. 구축 Workflow (고난도 버전)  
+## 5. 문단 엣지 유형
 
-1. **Micro-chunk 파싱** : 문단→문장→의미 단위로 토큰화  
-2. **Core claim 선정** : tier=core 후보만 우선 그래프화  
-3. **Multi-hop 연결** : 최소 2-hop으로 답이 구성되도록 엣지 설계  
-4. **반례·제한** 배치 : has_exception / rebuttal_of 추가 → 판단형·보기형 선지 소재  
-5. **정량-정성 믹스** : QuantComparison + Evaluation 혼합 → '△보다 크다 + 가치 판단' 선지 제작  
-6. **검증 문장 링크** : 모든 edge.metadata.supporting_sentence → 원문 exact string  
-
----
-
-#### 7. 고난도 출제용 패턴 가이드
-
-| 문항 유형 | 그래프 패턴 | 예시(첨부 기출) |
-|-----------|-------------|-----------------|
-| 복합 추론형 | causes + has_exception + rebuttal_of | 오존홀 생성(원인) ↔ 온실가스 has_exception (성층권 온도 상승 시) |
-| 시점 변동형 | before / after + delta_is_positive | 북극 2011·2020 오존 감소 before 2023 |
-| 관점 대립형 | has_stance (+supports/contradicts) | 바쟁 vs 정신분석 영화 이론 |
-| 조건 위배형 | requires + contradicts | 도덕 문장 진리값 requires 검증 가능 ↔ 에이어 contradicts |
-
----
-
-#### 8. 품질 Checklist (5 항)
-
-1. **근거 포함률 100 %** : 모든 core edge는 supporting_sentence 필수  
-2. **다중 경로** : 정답 선지는 2 이상 경로, 오답 선지는 1 경로 or break edge  
-3. **분기 균형** : 한 노드 degree 최대 7, 과도한 스타 구조 금지  
-4. **용어 일관성** : 동일 개념 label 동일, 상위/하위 관계 명시  
-5. **오류 로그 0** : JSON schema validation & unit-test 통과
-
----
-
-#### 9. 예시 스니펫 (v5.0)
+문단 엣지는 문단 간의 논리적 연결을 나타냅니다:
 
 ```json
 {
-  "nodes":[
-    {"id":"n1","label":"Montage","type":"technique","tier":"core"},
-    {"id":"n2","label":"Continuity of Reality","type":"property","tier":"core"},
-    {"id":"n3","label":"Bazin","type":"actor","tier":"core","discourse_role":"claim"},
-    {"id":"n4","label":"Disruption","type":"effect","tier":"support"}
+  "source_id": "p1",
+  "target_id": "p2",
+  "type": "builds_upon"
+}
+```
+
+### 문단 엣지 유형
+
+| 유형 | 설명 | 예시 연결 |
+|------|------|----------|
+| **builds_upon** | 앞 문단의 내용 발전/심화 | 정의 → 상세 설명 |
+| **contrasts_with** | 대조적 관점/현상 제시 | A이론 → B이론 |
+| **introduces_problem** | 문제 제기 | 현상 → 문제점 |
+| **provides_solution** | 해결책 제시 | 문제점 → 해결방안 |
+| **exemplifies** | 구체적 사례/적용 제시 | 이론 → 사례 |
+| **shifts_perspective** | 관점 전환 | 기술적 → 윤리적 |
+| **specifies_condition** | 조건/한계 명시 | 일반론 → 예외/조건 |
+| **concludes_from** | 앞 내용에서 결론 도출 | 논증 → 결론 |
+
+## 6. 개념 노드 및 엣지 유형
+
+개념 노드와 엣지는 v5.0의 체계를 유지하며, 다음과 같은 속성을 가집니다:
+
+```json
+// 개념 노드
+{
+  "id": "n1",
+  "label": "개념명",
+  "type": "concept",
+  "tier": "core",           // core/support
+  "paragraph_id": "p1",     // 소속 문단 ID (v6.0 추가)
+  "discourse_role": "claim" // 담론 역할
+}
+
+// 개념 엣지
+{
+  "source_id": "n1",
+  "target_id": "n2",
+  "type": "Causality",
+  "label": "causes",
+  "explicitness": "explicit",  // explicit/implicit (v6.0 추가)
+  "complexity": "medium",      // low/medium/high (v6.0 추가)
+  "supporting_sentence": "..."
+}
+```
+
+## 7. 암시적/명시적 엣지 구분
+
+v6.0에서는 개념 엣지를 **명시적(explicit)**과 **암시적(implicit)**으로 구분합니다:
+
+- **명시적 엣지**: 텍스트에 직접 언급된 관계 (예: "A는 B를 유발한다")
+- **암시적 엣지**: 텍스트에 직접 언급되지 않았으나 추론 가능한 관계
+
+```json
+// 명시적 엣지
+{
+  "source_id": "n1",
+  "target_id": "n2",
+  "type": "Causality",
+  "label": "causes",
+  "explicitness": "explicit",
+  "supporting_sentence": "A는 B를 유발한다."
+}
+
+// 암시적 엣지
+{
+  "source_id": "n3",
+  "target_id": "n4",
+  "type": "Evaluation",
+  "label": "views_as",
+  "explicitness": "implicit",
+  "inference_basis": ["p2-s3", "p3-s1"]  // 추론의 근거가 되는 문장
+}
+```
+
+### 암시적 엣지의 중요성
+
+암시적 엣지는 상위권 학생들을 변별하는 핵심 요소로, 다음과 같은 기능을 합니다:
+
+1. **추론 역량 측정**: 명시되지 않은 논리적 연결을 파악하는 능력 요구
+2. **문항 소재 제공**: 추론형, 적용형 문항의 핵심 소재로 활용
+3. **실제 학술 텍스트 반영**: 실제 전문적 텍스트의 논리적 특성 반영
+
+## 8. 텐션 수치 설계 및 영향
+
+텐션 수치는 문단 단위의 정보 밀도와 추론 부담 수준을 1-5 척도로 정량화한 값입니다:
+
+### 텐션 수치별 특성
+
+| 텐션 수치 | 문단 특성 | 개념 노드/엣지 영향 |
+|---------|---------|-------------------|
+| **1** (낮음) | • 기본 개념 소개<br>• 배경 설명<br>• 친절한 서술 | • 소수의 핵심 노드(2-3개)<br>• 단순한 엣지 유형<br>• 암시적 엣지 없음 |
+| **2** (기본) | • 개념 확장<br>• 맥락 제공<br>• 구체적 예시 | • 중간 수준 노드(3-5개)<br>• 일반적 엣지 유형<br>• 암시적 엣지 20% 미만 |
+| **3** (중간) | • 개념 응용<br>• 일부 추론 요구<br>• 복합 개념 도입 | • 다양한 노드(5-7개)<br>• 다양한 엣지 유형<br>• 암시적 엣지 30% |
+| **4** (높음) | • 다중 관점 제시<br>• 대조적 내용<br>• 추상화 수준 높음 | • 복잡한 노드 구조(7-9개)<br>• 고급 엣지 유형<br>• 암시적 엣지 50% |
+| **5** (매우 높음) | • 통합적 재구성<br>• 심층적 함의<br>• 높은 추론 요구 | • 긴밀히 연결된 다수 노드(8-10개+)<br>• 복합 엣지 패턴<br>• 암시적 엣지 70% |
+
+### 텐션 곡선 패턴
+
+전체 지문의 텐션 분포를 설계하는 패턴:
+
+| 패턴 | 텐션 분포 | 효과 |
+|------|---------|------|
+| **점진적 상승** | [1→2→3→4→5] | 점층적 이해 요구, 고난도 결론 |
+| **클라이맥스형** | [2→3→5→4→2] | 핵심 난제 후 해소 |
+| **교차형** | [2→4→2→5→3] | 긴장-이완 교차로 독해 피로 방지 |
+| **단계형** | [2→2→4→4→5] | 난이도 단계 뚜렷, 평탄구간 제공 |
+| **심층부 집중** | [1→2→5→5→3] | 중심부에 핵심 정보 밀집 |
+
+## 9. 개념 엣지 난이도 분류
+
+v6.0에서는 개념 엣지를 난이도에 따라 분류합니다:
+
+### 난이도별 엣지 유형
+
+| 난이도 | 엣지 유형 | 특징 |
+|-------|---------|------|
+| **초급** | • Definition<br>• Classification<br>• Property<br>• Composition<br>• Example | • 직관적 이해 가능<br>• 단순한 논리 관계<br>• 명시적 표현이 대부분 |
+| **중급** | • Causality<br>• Purpose<br>• Comparison<br>• Temporal<br>• Spatial<br>• Reference<br>• Conditional | • 2단계 추론 필요<br>• 영역 특수적 지식 활용<br>• 부분적 암시적 표현 |
+| **고급** | • Argumentation<br>• CounterCausality<br>• Exception<br>• Modality<br>• Methodology<br>• Hierarchy<br>• Evaluation<br>• QuantComparison | • 다단계 추론 요구<br>• 전문적 사고 체계 필요<br>• 대부분 암시적 표현 |
+
+## 10. 내러티브 패턴 템플릿
+
+지문 전체의 내러티브 구조를 설계하기 위한 템플릿:
+
+### 내러티브 패턴 유형
+
+| 패턴 | 문단 구성 | 적합한 주제 |
+|------|---------|-------------|
+| **문제-해결** | 현상 소개→문제 제기→해결 과정→결론/의의 | 과학 기술, 사회 문제 |
+| **대조-종합** | 개념 도입→관점A→관점B→비교/대조→종합/평가 | 철학, 인문학적 논쟁 |
+| **시간적 전개** | 배경→발전 과정→현재→미래 전망 | 역사, 기술 발전사 |
+| **논증 구조화** | 주장→근거→반론→재반박→결론 | 윤리, 법학, 사회 논쟁 |
+| **개념 심화** | 기본 정의→세부 요소→작동 원리→한계/예외→응용 | 자연과학, 공학 |
+
+## 11. JSON 스키마 예시
+
+전체 지문의 개념 지도 v6.0 표현 예시:
+
+```json
+{
+  "$schema": "https://kice-graph.org/schema/v6.0",
+  "graph_id": "2026_06_section_8_11",
+  "document_source": {
+    "title": "인공지능의 윤리적 문제",
+    "domain": "기술",
+    "subdomain": "인공지능"
+  },
+  "narrative_pattern": "대조-종합",
+  "tension_curve": [1, 3, 4, 5, 3],
+  
+  "paragraphs": [
+    {
+      "id": "p1",
+      "order": 1,
+      "role": "intro",
+      "tension_level": 1,
+      "description": "인공지능 윤리의 필요성 소개",
+      "contains_nodes": ["n1", "n2", "n3"],
+      "primary_concept": "n1"
+    },
+    {
+      "id": "p2",
+      "order": 2,
+      "role": "explain",
+      "tension_level": 3,
+      "description": "결과주의적 관점의 AI 윤리",
+      "contains_nodes": ["n4", "n5", "n6", "n7", "n8"],
+      "primary_concept": "n4"
+    },
+    // 추가 문단...
   ],
-  "edges":[
-    {"source_id":"n1","target_id":"n2","type":"Comparison","label":"differs_from",
-     "metadata":{"supporting_sentence":"바쟁은 몽타주가 현실의 연속성을 깨뜨린다고 보았다."}},
-    {"source_id":"n1","target_id":"n4","type":"Causality","label":"causes",
-     "metadata":{"supporting_sentence":"몽타주는 공간을 불연속적으로 연결해 관객에게 생소한 느낌을 준다."}},
-    {"source_id":"n3","target_id":"n1","type":"Evaluation","label":"views_as",
-     "metadata":{"supporting_sentence":"바쟁은 몽타주가 관객 해석을 제한한다고 비판했다."}}
+  
+  "paragraph_edges": [
+    {
+      "source_id": "p1",
+      "target_id": "p2",
+      "type": "builds_upon"
+    },
+    {
+      "source_id": "p2",
+      "target_id": "p3",
+      "type": "contrasts_with"
+    },
+    // 추가 문단 엣지...
+  ],
+  
+  "nodes": [
+    {
+      "id": "n1",
+      "label": "인공지능",
+      "type": "concept",
+      "tier": "core",
+      "paragraph_id": "p1",
+      "discourse_role": "subject"
+    },
+    {
+      "id": "n2",
+      "label": "윤리적 문제",
+      "type": "concept",
+      "tier": "core",
+      "paragraph_id": "p1",
+      "discourse_role": "claim"
+    },
+    // 추가 노드...
+  ],
+  
+  "edges": [
+    {
+      "source_id": "n1",
+      "target_id": "n2",
+      "type": "Property",
+      "label": "has_attribute",
+      "explicitness": "explicit",
+      "complexity": "low",
+      "supporting_sentence": "인공지능 기술의 발전은 새로운 윤리적 문제를 제기한다."
+    },
+    {
+      "source_id": "n4",
+      "target_id": "n6",
+      "type": "Evaluation",
+      "label": "views_as",
+      "explicitness": "implicit",
+      "complexity": "high",
+      "inference_basis": ["p2-s3", "p2-s4"]
+    },
+    // 추가 엣지...
   ]
 }
+```
+
+## 12. 머메이드 시각화 표준
+
+v6.0 개념 지도는 다음 두 가지 다이어그램으로 시각화합니다:
+
+### 1. 문단 흐름도 (거시적 구조)
+
+```mermaid
+flowchart LR
+    subgraph "텐션곡선"
+        t1["1"] --> t2["3"] --> t3["4"] --> t4["5"] --> t5["3"]
+    end
+    
+    p1["p1: 도입(1)"] --builds_upon--> p2["p2: 설명(3)"]
+    p2 --contrasts_with--> p3["p3: 대조(4)"]
+    p3 --synthesizes--> p4["p4: 종합(5)"]
+    p4 --concludes_from--> p5["p5: 결론(3)"]
+```
+
+### 2. 개념 구조도 (미시적 구조)
+
+```mermaid
+flowchart TB
+    %% 노드 정의
+    n1["인공지능"] 
+    n2["윤리적 문제"]
+    n4["결과주의"]
+    n6["행위의 결과"]
+    
+    %% 명시적 엣지 (실선)
+    n1 -->|"has_attribute"| n2
+    
+    %% 암시적 엣지 (점선)
+    n4 -.->|"views_as"| n6
+    
+    %% 스타일링
+    classDef low fill:#90EE90,stroke:#000,stroke-width:1px;
+    classDef medium fill:#ADD8E6,stroke:#000,stroke-width:1px;
+    classDef high fill:#FFB6C1,stroke:#000,stroke-width:1px;
+    
+    class n1,n2 low;
+    class n4 medium;
+    class n6 high;
+```
+
+## 13. 품질 체크리스트
+
+개념 지도 v6.0이 완성되면 다음 체크리스트로 품질을 검증합니다:
+
+1. **완전성 검증**
+   - [ ] 모든 주요 개념이 노드로 포함됨
+   - [ ] 문단별 텐션 수치가 모두 정의됨
+   - [ ] 암시적 엣지가 충분한 근거를 가짐
+
+2. **일관성 검증**
+   - [ ] 텐션 수치와 노드/엣지 분포가 일치함
+   - [ ] 내러티브 패턴이 문단 역할과 일관됨
+   - [ ] 개념 간 계층 구조가 논리적으로 일관됨
+
+3. **변별력 검증**
+   - [ ] 최소 30% 이상의 암시적 엣지 포함
+   - [ ] 텐션 수치 4-5 문단이 1개 이상 포함
+   - [ ] 고급 난이도 엣지가 25% 이상 포함
+
+4. **출제 가능성 검증**
+   - [ ] 세부 정보 파악, 추론, 적용 유형 문항 설계 가능
+   - [ ] 개념 간 비교/대조를 요구하는 문항 설계 가능
+   - [ ] 최소 1개 이상의 고난도 문항 설계 가능
+
+## 부록: 엣지 타입 및 레이블 참조표
+
+개념 엣지는 v5.0의 체계를 그대로 유지합니다:
+
+| Type | Label | 설명 | 난이도 |
+|------|-------|------|-------|
+| **Hierarchy** | is_parent_of, is_child_of | 상하위 관계 | 고급 |
+| **Classification** | belongs_to | 분류 관계 | 초급 |
+| **Definition** | defines | 정의 관계 | 초급 |
+| **Composition** | has_part | 부분-전체 관계 | 초급 |
+| **Property** | has_attribute | 속성 관계 | 초급 |
+| **Comparison** | is_similar_to, differs_from | 유사/대조 관계 | 중급 |
+| **QuantComparison** | is_greater_than, is_less_than, is_equal_to, delta_is_positive, delta_is_negative | 수량 비교 | 고급 |
+| **Causality** | causes, influences | 인과 관계 | 중급 |
+| **CounterCausality** | mitigates, exacerbates | 역인과 관계 | 고급 |
+| **Conditionality** | requires, depends_on | 조건 관계 | 중급 |
+| **Exception** | has_exception, has_scope_limit | 예외/한계 | 고급 |
+| **Temporal** | occurs_at, before, after | 시간 관계 | 중급 |
+| **Spatial** | is_located_at | 공간 관계 | 중급 |
+| **Purpose** | has_purpose, functions_as, uses_means | 목적 관계 | 중급 |
+| **Example** | is_example_of | 예시 관계 | 초급 |
+| **Reference** | refers_to, is_source_of | 참조 관계 | 중급 |
+| **Evaluation** | views_as, has_stance | 평가 관계 | 고급 |
+| **Argumentation** | supports, contradicts, rebuttal_of, argument_unit | 논증 관계 | 고급 |
+| **Methodology** | uses_framework, is_derived_from | 방법론 관계 | 고급 |
+| **Modality** | is_hypothetical, has_probability | 양태 관계 | 고급 |
