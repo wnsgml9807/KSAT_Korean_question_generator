@@ -84,41 +84,21 @@ class SessionManager:
         current_viewport_height = st.session_state.get("viewport_height")
         logger.info(f"세션 리셋 요청 (ID: {current_session_id}).")
 
-        # --- 백엔드에 세션 삭제 요청 추가 ---
-        if current_session_id:
-            try:
-                config = Config() # 백엔드 URL을 가져오기 위해 Config 인스턴스 생성
-                backend_url = config.backend_url
-                delete_url = f"{backend_url}/sessions/{current_session_id}"
-                response = requests.delete(delete_url, timeout=10)
-                if response.status_code == 200:
-                    logger.info(f"백엔드 세션 (ID: {current_session_id}) 삭제 성공.")
-                    st.toast(f"서버의 세션 기록(ID: {current_session_id})이 삭제되었습니다.", icon="🗑️")
-                else:
-                    logger.error(f"백엔드 세션 (ID: {current_session_id}) 삭제 실패: {response.status_code} - {response.text}")
-                    st.toast(f"서버 세션 기록 삭제 실패 (오류: {response.status_code})", icon="⚠️")
-            except requests.exceptions.RequestException as e:
-                logger.error(f"백엔드 세션 (ID: {current_session_id}) 삭제 요청 중 오류: {e}")
-                st.toast(f"서버 세션 기록 삭제 중 통신 오류 발생", icon="🚨")
-            except Exception as e:
-                logger.error(f"세션 삭제 중 예기치 않은 오류 (ID: {current_session_id}): {e}", exc_info=True)
-                st.toast(f"세션 삭제 중 알 수 없는 오류 발생", icon="🚨")
-        # --- --------------------------- ---
-
-        # Clear all other session state variables
+        # 세션 변수 정리 (session_id, viewport_height 제외)
         keys_to_clear = list(st.session_state.keys())
         for key in keys_to_clear:
-            # session_id 와 viewport_height 를 제외하고 모두 삭제
             if key not in ["session_id", "viewport_height"]:
                 del st.session_state[key]
         
-        # Re-initialize necessary session variables
+        # 필수 세션 변수 다시 초기화
         st.session_state.messages = []
         st.session_state.is_streaming = False
-
-        # 추가된 세션 상태 값 초기화
         st.session_state.last_stream_ending_agent = None
         st.session_state.is_first_stream_for_session = True
+        
+        # 페이지 새로고침 수행
+        st.toast("대화가 초기화되었습니다.", icon="🔄")
+        st.rerun()
 
     @staticmethod
     def add_message(role, content):
