@@ -172,15 +172,6 @@ class UI:
             font-weight: 500;
             margin-bottom: 1.5em;
         }
-        /* <보기> 내 중첩 테이블 폰트 설정 */
-        .question-font table tr td table {
-            font-family: '돋움', Dotum, sans-serif !important; /* 돋움 폰트 적용, 없을 시 sans-serif */
-            font-size: 0.95em; /* 기본 폰트보다 약간 작게 설정 (선택 사항) */
-            line-height: 1.5em; /* 줄 간격 조정 (선택 사항) */
-            font-weight: 500;
-            letter-spacing: -0.02em;
-        }
-        </style>
         """, unsafe_allow_html=True)
     
 
@@ -285,6 +276,8 @@ class MessageRenderer:
             return "기출 주제 조회"
         elif tool_name == "concept_map_manual":
             return "개념 지도 작성 지침 열람"
+        elif tool_name == "google_search_node":
+            return "Google 검색"            
         # 다른 도구 이름 변환 규칙 추가 가능
         return tool_name
     
@@ -418,6 +411,9 @@ class MessageRenderer:
                     st.code(tool_content)
                     self.logger.error(f"Mermaid 렌더링 오류: {e}", exc_info=True)
                 # --- --------------------- ---
+        elif tool_name == "google_search_node":
+            with placeholders[idx].status(f"🔍 Google 검색", state="complete", expanded=False):
+                st.markdown(tool_content, unsafe_allow_html=True)
         else:
             # 그 외 모든 도구: 축소된 완료 상태로 표시 (내용 숨김)
             current_placeholder = placeholders[idx]
@@ -444,6 +440,8 @@ class BackendClient:
             return "기출 주제 조회"
         elif tool_name == "concept_map_manual":
             return "개념 지도 작성 지침 열람"
+        elif tool_name == "google_search_node":
+            return "Google 검색"            
         # 다른 도구 이름 변환 규칙 추가 가능
         return tool_name
 
@@ -637,6 +635,10 @@ class BackendClient:
                                     st.code(tool_content)
                                     self.logger.error(f"Mermaid 렌더링 오류: {e}", exc_info=True)
                             current_idx += 1
+                        elif tool_name == "google_search_node":
+                            with placeholders[current_idx].status(f"🔍 Google 검색", state="complete", expanded=False):
+                                st.markdown(tool_content, unsafe_allow_html=True)
+                            current_idx += 1
                         else:
                             current_placeholder = placeholders[current_idx]
                             status_obj = current_placeholder.status(f"{friendly_tool_name} 중...", state="running", expanded=False)
@@ -670,8 +672,8 @@ class BackendClient:
 
         return message_data
     
-    def _parse_stream_line(self, line):
-        """Parse a line from the SSE stream"""
+        def _parse_stream_line(self, line):
+            """Parse a line from the SSE stream"""
         return json.loads(line[6:])  # Remove 'data: ' prefix
     
     def _determine_artifact_type(self, agent):
@@ -807,12 +809,16 @@ def show_main_app(config, logger):
     if len(st.session_state.messages) == 0:
         with passage_placeholder.container():
             st.title("Welcome!")
-            st.subheader(":thinking_face: 하단 입력창에 원하는 주제를 입력하세요.")
-            st.markdown("🎯*예시 1: 사회적인 문제를 깊이 다루는 지문을 출제해 줘.*")
-            st.markdown("🎯*예시 2: 최신 기술을 설명하는 고난도 지문을 써 봐.*")
-            st.markdown("🎯*예시 3: 여러 학자들의 관점을 비교하는 문제를 만들어 줘.*")
+            st.subheader(":thinking_face: 하단 입력창에 원하는 '분야'를 입력해 보세요!")
+            st.markdown("🎯*예시 1: 인문 지문을 작성해 줘.*")
+            st.markdown("🎯*예시 2: 과학 지문을 작성해 줘.*")
+            st.markdown("🎯*예시 3: 복합 분야 지문을 작성해 줘.*")
             st.markdown(" ")
-            st.markdown("ver : 0.6.0")
+            st.markdown("ver : 0.6.3")
+            st.code("""
+            - 주제 선정 시 Google 검색 기능 추가
+            - 개념 분해(DCS) 보고서 도입
+            """)
     
     
     # --- 기존 메시지 표시 ---
