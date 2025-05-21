@@ -11,6 +11,7 @@ import streamlit_mermaid as stmd  # 머메이드 라이브러리 추가
 from streamlit import Page # Import Page
 import hashlib # 비밀번호 해싱을 위해 추가
 from typing import Dict, Any
+import streamlit.components.v1 as components  # 복잡한 HTML 렌더링용
 
 # Configuration class for app settings
 class Config:
@@ -20,7 +21,7 @@ class Config:
         self.page_icon = "📚"
         self.layout = "wide"
         self.sidebar_state = "expanded"
-        self.version = "0.6.0"
+        self.version = "0.7.0"
         self.author = "권준희"
         self.where = "연세대학교 교육학과"
         self.contact = "wnsgml9807@naver.com"
@@ -79,16 +80,20 @@ class SessionManager:
 
     @staticmethod
     def reset_session(logger):
-        """Reset the session state, preserving session_id and viewport_height"""
+        """Reset the session state, preserving only viewport_height"""
         current_session_id = st.session_state.get("session_id")
         current_viewport_height = st.session_state.get("viewport_height")
         logger.info(f"세션 리셋 요청 (ID: {current_session_id}).")
 
-        # 세션 변수 정리 (session_id, viewport_height 제외)
+        # 세션 변수 정리 (viewport_height만 제외)
         keys_to_clear = list(st.session_state.keys())
         for key in keys_to_clear:
-            if key not in ["session_id", "viewport_height"]:
+            if key not in ["viewport_height"]:
                 del st.session_state[key]
+        
+        # 새 세션 ID 생성
+        st.session_state.session_id = f"session_{uuid.uuid4()}"
+        logger.info(f"새 세션 ID 생성됨: {st.session_state.session_id}")
         
         # 필수 세션 변수 다시 초기화
         st.session_state.messages = []
@@ -169,12 +174,12 @@ class UI:
                 """
             )
             
-            # --- 사이드바에서 높이 감지 및 세션 상태 업데이트 ---
-            # 스트리밍 중이 아닐 때만 화면 크기 감지 실행
+            
             if not st.session_state.get("is_streaming", False):
                 try:
-                    screen_data = ScreenData()
-                    stats = screen_data.st_screen_data() # 컴포넌트 로딩 및 값 가져오기
+                    with st.container(border=False, height=1):
+                        screen_data = ScreenData()
+                        stats = screen_data.st_screen_data() # 컴포넌트 로딩 및 값 가져오기
 
                     if stats and "innerHeight" in stats:
                         height = stats.get("innerHeight")
@@ -188,10 +193,10 @@ class UI:
                     pass
                     # 오류 발생 시에도 세션 상태에 viewport_height가 없으면 기본값 설정
                     if "viewport_height" not in st.session_state:
-                         st.session_state.viewport_height = 800 # 기본값 설정
+                        st.session_state.viewport_height = 800 # 기본값 설정
 
             # Session reset button
-            if st.button("🔄️ 대화 새로고침"):
+            if st.button("🔄️ 대화 새로고침", use_container_width=True, type="primary"):
                 # 리셋 시 viewport_height는 SessionManager.reset_session에서 유지됨
                 SessionManager.reset_session(logger)
                 st.success("대화 기록이 초기화됩니다.")
@@ -257,11 +262,13 @@ class MessageRenderer:
         elif tool_name == "concept_map_manual":
             return "개념 지도 작성 지침 열람"
         elif tool_name == "google_search_node":
-            return "Google 검색"            
+            return "Google 검색"
+        elif tool_name == "use_question_artifact":
+            return "문제 출력"
         # 다른 도구 이름 변환 규칙 추가 가능
         return tool_name
     
-    def render_message(self, message):
+    def render_message(self, message, viewport_height):
         """Render a message based on its role and content"""
         role = message.get("role", "unknown")
         content = message.get("content", "")
@@ -282,9 +289,9 @@ class MessageRenderer:
                     current_idx = 0
                 
                 # Process content
-                self._process_assistant_content(content, placeholders, current_idx)
+                self._process_assistant_content(content, placeholders, current_idx, viewport_height)
     
-    def _process_assistant_content(self, content, placeholders, current_idx):
+    def _process_assistant_content(self, content, placeholders, current_idx, viewport_height):
         """Process and render assistant message content"""
         # Parse content if it's a string
         
@@ -293,7 +300,7 @@ class MessageRenderer:
                 msg_data = json.loads(content)
             except (json.JSONDecodeError, TypeError):
                 # Not JSON, render as plain text
-                st.markdown(content, unsafe_allow_html=True)
+                st.markdown(content)
                 return
         else:
             # Already a dictionary
@@ -310,7 +317,7 @@ class MessageRenderer:
                 # Handle text messages
                 if item_type == "text":
                     # 수정: 아티팩트 텍스트와 일반 텍스트 분리 처리
-                    if item_agent in ["passage_editor", "question_editor"]:
+                    if item_agent in ["passage_editor"]:  # question_editor 제거
                         # 1. 완료 상태 표시 (placeholder 사용)
                         status_label = "지문 작성 완료" if item_agent == "passage_editor" else "문제 작성 완료"
                         with placeholders[current_idx].status(f"{status_label}", state="complete", expanded=False):
@@ -318,14 +325,14 @@ class MessageRenderer:
                         current_idx += 1 # 상태 표시 후 인덱스 증가
                         
                         # 2. 실제 텍스트는 아티팩트 패널에만 렌더링
-                        self._render_text_item(item, item_agent)
+                        self._render_text_item(item, item_agent, viewport_height)
                     else:
                         # 일반 텍스트 메시지는 placeholder 사용
                         if current_idx < len(placeholders):
                             with placeholders[current_idx].container(border=False):
-                                st.markdown(item_content, unsafe_allow_html=True)
+                                st.markdown(item_content)
                         else:
-                            st.markdown(item_content, unsafe_allow_html=True)
+                            st.markdown(item_content)
                         current_idx += 1
                     
                 # Handle tool execution results
@@ -333,7 +340,7 @@ class MessageRenderer:
                     # _render_tool_item 내부에서 placeholder 인덱스를 사용하므로,
                     # 호출 전에 인덱스 유효성 검사도 고려할 수 있음
                     if current_idx < len(placeholders):
-                        self._render_tool_item(item, placeholders, current_idx)
+                        self._render_tool_item(item, placeholders, current_idx, viewport_height)
                         current_idx += 1 # 도구 아이템 처리 후 인덱스 증가
                     else:
                         st.warning(f"도구 표시 오류: {self._get_friendly_tool_name(item.get('name', ''))}")
@@ -357,16 +364,41 @@ class MessageRenderer:
             # Render plain content
             st.markdown(str(content))
     
-    def _render_text_item(self, item, agent):
+    def _render_text_item(self, item, agent, viewport_height):
         """Render text message content to the appropriate artifact panel."""
+        
+        css = """<style>
+        @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
+        .passage-font {
+            border: 0.5px solid black;
+            border-radius: 0px;
+            padding: 10px;
+            margin-bottom: 20px;
+            font-family: 'Nanum Myeongjo', serif !important;
+            line-height: 1.7;
+            letter-spacing: -0.01em;
+            font-weight: 500;
+        }
+        .passage-font p {
+            text-indent: 1em; /* 각 문단의 첫 줄 들여쓰기 */
+            margin-bottom: 0em;
+        }
+        .question-font {
+            font-family: 'Nanum Myeongjo', serif !important;
+            line-height: 1.7em;
+            letter-spacing: -0.01em;
+            font-weight: 500;
+            margin-bottom: 1.5em;
+        }
+        </style>
+        """
+        
+        
         if agent == "passage_editor":
             with self.passage_placeholder:
                 st.markdown(item["content"], unsafe_allow_html=True)
-        elif agent == "question_editor":
-            with self.question_placeholder:
-                st.markdown(item["content"], unsafe_allow_html=True)
     
-    def _render_tool_item(self, item, placeholders, idx):
+    def _render_tool_item(self, item, placeholders, idx, viewport_height):
         """Render tool execution results according to final desired state."""
         tool_name = item.get("name", "도구 실행 결과")
         tool_content = item.get("content", "") # Get content for mermaid
@@ -379,8 +411,43 @@ class MessageRenderer:
             st.warning(f"도구 표시 오류: {friendly_tool_name}")
             return
             
+        # use_question_artifact 도구: question artifact에 바로 출력
+        if tool_name == "use_question_artifact":
+            css = """<style>
+            @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
+            .passage-font {
+                border: 0.5px solid black;
+                border-radius: 0px;
+                padding: 10px;
+                margin-bottom: 20px;
+                font-family: 'Nanum Myeongjo', serif !important;
+                line-height: 1.7;
+                letter-spacing: -0.01em;
+                font-weight: 500;
+            }
+            .passage-font p {
+                text-indent: 1em; /* 각 문단의 첫 줄 들여쓰기 */
+                margin-bottom: 0em;
+            }
+            .question-font {
+                font-family: 'Nanum Myeongjo', serif !important;
+                line-height: 1.7em;
+                letter-spacing: -0.01em;
+                font-weight: 500;
+                margin-bottom: 1.5em;
+            }
+            </style>
+            """
+            
+            # 완료 상태 표시
+            with placeholders[idx].status("문제 작성 완료", state="complete", expanded=False):
+                pass
+            
+            # question artifact에 바로 출력
+            with self.question_placeholder:
+                components.html(css + tool_content, height=viewport_height-10, scrolling=True)
         # Mermaid 도구: 확장된 완료 상태로 표시
-        if tool_name == "mermaid_tool": # 내부 로직은 원래 이름 사용 유지
+        elif tool_name == "mermaid_tool": # 내부 로직은 원래 이름 사용 유지
             with placeholders[idx].status(f"📊 개념 지도", state="complete", expanded=True):
                 # --- Mermaid 렌더링 로직 복원 ---
                 try:
@@ -421,11 +488,13 @@ class BackendClient:
         elif tool_name == "concept_map_manual":
             return "개념 지도 작성 지침 열람"
         elif tool_name == "google_search_node":
-            return "Google 검색"            
+            return "Google 검색"
+        elif tool_name == "use_question_artifact":
+            return "문제 출력"
         # 다른 도구 이름 변환 규칙 추가 가능
         return tool_name
 
-    def send_message(self, prompt, session_id):
+    def send_message(self, prompt, session_id, viewport_height):
         """Send a message to the backend and process streaming response"""
         with self.chat_container:
             # Create more placeholders for streaming content (increased from 50 to 100)
@@ -455,7 +524,7 @@ class BackendClient:
                 # 스트리밍 시작 시 플래그 설정
                 st.session_state.is_streaming = True
                 # Process streaming response
-                return self._process_stream(response, placeholders, message_data)
+                return self._process_stream(response, placeholders, message_data, viewport_height)
                 
             except requests.exceptions.RequestException as e:
                 return self._handle_request_error(e, placeholders, 0) # 에러 처리 및 로깅 유지
@@ -463,7 +532,7 @@ class BackendClient:
                 return self._handle_generic_error(e, placeholders, 0) # 에러 처리 및 로깅 유지
 
     
-    def _process_stream(self, response, placeholders, message_data):
+    def _process_stream(self, response, placeholders, message_data, viewport_height):
         """Process streaming response from backend"""
         current_idx = 0
         current_text = ""
@@ -513,7 +582,7 @@ class BackendClient:
                         if current_text: # 남은 텍스트 처리
                             last_agent = previous_chunk_agent if previous_chunk_agent is not None else "unknown"
                             last_artifact_type = self._determine_artifact_type(last_agent)
-                            self._update_artifact(current_text, last_artifact_type, placeholders, current_idx, is_final=True)
+                            self._update_artifact(current_text, last_artifact_type, placeholders, current_idx, is_final=True, viewport_height=viewport_height)
                             message_data["messages"].append({"type": "text", "content": current_text, "agent": last_agent})
                             self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{last_agent}\\n{current_text}')
                             current_idx += 1
@@ -528,7 +597,7 @@ class BackendClient:
                         if current_text: # 남은 텍스트 처리
                             last_agent = previous_chunk_agent if previous_chunk_agent is not None else "unknown"
                             last_artifact_type = self._determine_artifact_type(last_agent)
-                            self._update_artifact(current_text, last_artifact_type, placeholders, current_idx, is_final=True)
+                            self._update_artifact(current_text, last_artifact_type, placeholders, current_idx, is_final=True, viewport_height=viewport_height)
                             self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{last_agent}\\n{current_text}')
                             message_data["messages"].append({"type": "text", "content": current_text, "agent": last_agent})
                             current_idx += 1
@@ -566,7 +635,7 @@ class BackendClient:
                         # 변경 직전 텍스트 처리 (previous_chunk_agent 기준)
                         if current_text:
                             prev_artifact_type = self._determine_artifact_type(previous_chunk_agent)
-                            self._update_artifact(current_text, prev_artifact_type, placeholders, current_idx, is_final=True)
+                            self._update_artifact(current_text, prev_artifact_type, placeholders, current_idx, is_final=True, viewport_height=viewport_height)
                             self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{previous_chunk_agent}\\n{current_text}')
                             message_data["messages"].append({"type": "text", "content": current_text, "agent": previous_chunk_agent})
                             current_idx += 1
@@ -585,11 +654,11 @@ class BackendClient:
 
                     if msg_type == "message":
                         current_text += text
-                        self._update_artifact(current_text, artifact_type, placeholders, current_idx)
+                        self._update_artifact(current_text, artifact_type, placeholders, current_idx, viewport_height=viewport_height)
                     elif msg_type == "tool":
                         # 도구 실행 전 텍스트 처리 (current_chunk_agent 기준)
                         if current_text:
-                           self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True)
+                           self._update_artifact(current_text, artifact_type, placeholders, current_idx, is_final=True, viewport_height=viewport_height)
                            self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 에이전트 응답:{current_chunk_agent}\\n{current_text}')
                            message_data["messages"].append({"type": "text", "content": current_text, "agent": current_chunk_agent})
                            current_idx += 1
@@ -615,6 +684,43 @@ class BackendClient:
                                     st.code(tool_content)
                                     self.logger.error(f"Mermaid 렌더링 오류: {e}", exc_info=True)
                             current_idx += 1
+                            
+                        elif tool_name == "use_question_artifact":
+                            css = """<style>
+                            @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
+                            .passage-font {
+                                border: 0.5px solid black;
+                                border-radius: 0px;
+                                padding: 10px;
+                                margin-bottom: 20px;
+                                font-family: 'Nanum Myeongjo', serif !important;
+                                line-height: 1.7;
+                                letter-spacing: -0.01em;
+                                font-weight: 500;
+                            }
+                            .passage-font p {
+                                text-indent: 1em; /* 각 문단의 첫 줄 들여쓰기 */
+                                margin-bottom: 0em;
+                            }
+                            .question-font {
+                                font-family: 'Nanum Myeongjo', serif !important;
+                                line-height: 1.7em;
+                                letter-spacing: -0.01em;
+                                font-weight: 500;
+                                margin-bottom: 1.5em;
+                            }
+                            </style>
+                            """
+                            
+                            # 완료 상태 표시
+                            with placeholders[current_idx].status("문제 작성 완료", state="complete", expanded=False):
+                                pass
+                            
+                            # question artifact에 바로 출력
+                            with self.question_placeholder:
+                                components.html(css + tool_content, height=viewport_height-10, scrolling=True)
+                            current_idx += 1
+                            
                         elif tool_name == "google_search_node":
                             with placeholders[current_idx].status(f"🔍 Google 검색", state="complete", expanded=False):
                                 st.markdown(tool_content, unsafe_allow_html=True)
@@ -639,7 +745,7 @@ class BackendClient:
             if not has_ended and current_text:
                  last_processed_agent = previous_chunk_agent if previous_chunk_agent is not None else "unknown"
                  last_artifact_type = self._determine_artifact_type(last_processed_agent)
-                 self._update_artifact(current_text, last_artifact_type, placeholders, current_idx, is_final=True)
+                 self._update_artifact(current_text, last_artifact_type, placeholders, current_idx, is_final=True, viewport_height=viewport_height)
                  self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 최종 에이전트 응답:{last_processed_agent}\\n{current_text}')
                  message_data["messages"].append({"type": "text","content": current_text,"agent": last_processed_agent})
 
@@ -652,21 +758,47 @@ class BackendClient:
 
         return message_data
     
-        def _parse_stream_line(self, line):
-            """Parse a line from the SSE stream"""
+    def _parse_stream_line(self, line):
+        """Parse a line from the SSE stream"""
         return json.loads(line[6:])  # Remove 'data: ' prefix
     
     def _determine_artifact_type(self, agent):
         """Determine artifact type based on agent"""
         if agent == "passage_editor":
             return "passage"
-        elif agent == "question_editor":
-            return "question"
+        # question_editor 처리 제거, 이제 일반 채팅으로 처리
         else:
             return "chat"
     
-    def _update_artifact(self, text, artifact_type, placeholders, idx, is_final=False):
+    def _update_artifact(self, text, artifact_type, placeholders, idx, is_final=False, viewport_height=None):
         """Update the appropriate artifact based on type"""
+        
+        css = """<style>
+        @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
+        .passage-font {
+            border: 0.5px solid black;
+            border-radius: 0px;
+            padding: 10px;
+            margin-bottom: 20px;
+            font-family: 'Nanum Myeongjo', serif !important;
+            line-height: 1.7;
+            letter-spacing: -0.01em;
+            font-weight: 500;
+        }
+        .passage-font p {
+            text-indent: 1em; /* 각 문단의 첫 줄 들여쓰기 */
+            margin-bottom: 0em;
+        }
+        .question-font {
+            font-family: 'Nanum Myeongjo', serif !important;
+            line-height: 1.7em;
+            letter-spacing: -0.01em;
+            font-weight: 500;
+            margin-bottom: 1.5em;
+        }
+        </style>
+        """
+        
         # Check if index is within bounds
         if idx >= len(placeholders):
             return
@@ -681,29 +813,16 @@ class BackendClient:
             except Exception as e:
                 pass
             
-            # Update the passage content - 불필요한 div 태그 제거
+            # Update the passage content - st.markdown 사용 (SVG 호환성을 위해)
             with self.passage_placeholder:
                 st.markdown(text, unsafe_allow_html=True)
                 
-        elif artifact_type == "question":
-            status_text = "문제 작성 완료" if is_final else "문제 작성 중..."
-            state = "complete" if is_final else "running"  # Always use valid state
-            
-            # Always show status for question updates
-            try:
-                placeholders[idx].status(status_text, expanded=False, state=state)
-            except Exception as e:
-                pass
-                
-            # Update the question content - 불필요한 div 태그 제거
-            with self.question_placeholder:
-                st.markdown(text, unsafe_allow_html=True)
-                
+        # question artifact 처리 부분 제거 (이제 도구 메시지로만 처리)
         else:
             # For regular chat messages, just use a container
             with placeholders[idx].container(border=False):
-                st.markdown(text, unsafe_allow_html=True)
-    
+                st.markdown(text)
+
     def _handle_json_error(self, error, line, placeholders, idx):
         """Handle JSON parsing errors"""
         error_msg = f"JSON 파싱 오류: {str(error)}"
@@ -788,26 +907,24 @@ def show_main_app(config, logger):
     # 첫 메시지일 경우, 환영 메시지 표시
     if len(st.session_state.messages) == 0:
         with passage_placeholder.container():
-            st.title("Welcome!")
-            st.subheader(":thinking_face: 하단 입력창에 원하는 '분야'를 입력해 보세요!")
-            st.markdown("🎯*예시 1: 인문 지문을 작성해 줘.*")
-            st.markdown("🎯*예시 2: 과학 지문을 작성해 줘.*")
-            st.markdown("🎯*예시 3: 복합 분야 지문을 작성해 줘.*")
+            st.title("Welcome to KSAT Agent!")
+            st.subheader(":thinking_face: 하단 입력창에 원하는 주제를 입력해 보세요!")
+            st.markdown("🎯*예시 1: 논리학 이론을 다룬 지문을 작성해 줘*")
+            st.markdown("🎯*예시 2: 생명과학 분야의 지문을 작성해 줘*")
             st.markdown(" ")
-            st.markdown("ver : 0.6.3")
+            st.markdown("ver : 0.7.0 (06.01)")
             st.code("""
-            - 주제 선정 시 Google 검색 기능 추가
-            - 개념 분해(DCS) 보고서 도입
+            - 새로운 Fine-tuned 모델 탑재로 인한 지문 품질 향상
+            - 절차 간소화 및 사용자 상호작용 강화
             """)
-    
     
     # --- 기존 메시지 표시 ---
     for message in st.session_state.messages:
-        message_renderer.render_message(message)
+        message_renderer.render_message(message, viewport_height)
 
     # --- 채팅 입력창 ---
     prompt = st.chat_input(
-        "ex) 인문 지문을 작성하고 싶어",
+        "ex) 논리학 이론을 다룬 지문을 작성해 줘",
         disabled=st.session_state.is_streaming,
         on_submit=on_submit
     )
@@ -820,11 +937,11 @@ def show_main_app(config, logger):
         SessionManager.add_message("user", prompt)
 
         # 3. 사용자 메시지 렌더링
-        message_renderer.render_message({"role": "user", "content": prompt})
+        message_renderer.render_message({"role": "user", "content": prompt}, viewport_height)
 
         # 4. 백엔드 호출 및 응답 처리
         try:
-            response = backend_client.send_message(prompt, st.session_state.session_id)
+            response = backend_client.send_message(prompt, st.session_state.session_id, viewport_height)
             SessionManager.add_message("assistant", response)
             st.session_state.is_streaming = False
         except Exception as e:

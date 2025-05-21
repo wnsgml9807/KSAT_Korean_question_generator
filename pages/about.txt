@@ -4,9 +4,9 @@ _Multi-Agent 기반 수능 국어 독서 영역 출제 자동화 시스템_
 ```
 제작자 : 권준희
 소속 : 연세대학교 교육학과
-ver 0.6.0 (05.07)
-- 개념 지도 기반 passage_editor 전용 파인튜닝 모델 탑재
-- 주제 선택 전문 에이전트 subject_collector 탑재
+ver 0.7.0 (06.01)
+- passage_editor 전용 파인튜닝 모델 업그레이드
+- 절차 대폭 간소화, 사용자 상호작용 강화
 - Docker 이미지 생성 + Google Cloud Platform 서버 구축
 ```
 
