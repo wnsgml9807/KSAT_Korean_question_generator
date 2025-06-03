@@ -207,7 +207,7 @@ class UI:
     def create_layout(viewport_height):
         """Create the main layout with columns"""
         # Create main columns
-        chat_column, artifact_column = st.columns([3, 5], vertical_alignment="top", gap="medium")
+        chat_column, artifact_column = st.columns([1, 2], vertical_alignment="top", gap="medium")
         
         # Chat container
         with chat_column:
@@ -265,6 +265,8 @@ class MessageRenderer:
             return "Google 검색"
         elif tool_name == "use_question_artifact":
             return "문제 출력"
+        elif tool_name == "retrieve_outline_summaries":
+            return "기출 DB 조회"
         # 다른 도구 이름 변환 규칙 추가 가능
         return tool_name
     
@@ -491,6 +493,8 @@ class BackendClient:
             return "Google 검색"
         elif tool_name == "use_question_artifact":
             return "문제 출력"
+        elif tool_name == "retrieve_outline_summaries":
+            return "기출 DB 조회"
         # 다른 도구 이름 변환 규칙 추가 가능
         return tool_name
 
