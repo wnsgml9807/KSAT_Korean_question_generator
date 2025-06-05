@@ -2,13 +2,14 @@
 _Multi-Agent 기반 수능 국어 독서 영역 출제 자동화 시스템_
 
 ```
-제작자 : 권준희
-소속 : 연세대학교 교육학과
-ver 0.6.0 (05.07)
-- 개념 지도 기반 passage_editor 전용 파인튜닝 모델 탑재
-- 주제 선택 전문 에이전트 subject_collector 탑재
-- Docker 이미지 생성 + Google Cloud Platform 서버 구축
+제작자: 권준희
+소속: 연세대학교 교육학과
+버전: 0.7.1 (2024.06.03)
+- Fine-tuned 모델 업그레이드로 지문 품질 대폭 향상
+- 문항 구성 다양화, 오답 선지 고도화
+- 출제 절차 간소화 및 사용자 상호작용 강화
 ```
+
 <br>
 
 <div align="center">
@@ -20,908 +21,1025 @@ ver 0.6.0 (05.07)
 </div>
 <br>
 
----
-
-### 1️⃣ 개요
-
-수능 국어, 특히 독서 지문의 출제에는 상당한 시간과 비용이 필요합니다.
-
-KSAT Agent는 고품질의 수능 국어 독서 지문 세트를 **약 10분 안에** 완성하여 제공할 수 있습니다.
-
-사용자는 AI와 함께 원하는 주제를 섬세하게 결정한 후, 나머지 출제 과정은 AI 에이전트들이 분담하여 처리합니다.
 
 ---
 
-### 2️⃣ 효과성
+## 1️⃣ 프로젝트 개요
 
-기존 출제 프로세스를 크게 단축하고, 상당한 비용을 절감할 수 있습니다.
+KSAT Agent는 수능 국어 모의고사 출제 업무를 AI로 자동화하는 시스템입니다. 
+더 많은 학생들이 적은 비용으로 양질의 학습 콘텐츠를 누릴 수 있도록, AI 기반의 출제 시스템 개발을 시도하였습니다. 
+대성학원, 메가스터디 등 대형 학원에서 3년간 국어 모의고사 출제자로 활동한 경험과 노하우를 시스템에 녹여내었으며, 이를 통해 교육 격차 해소에도 기여하고자 합니다.
 
-##### 기존 출제 프로세스
+---
 
-| 기존 출제 과정 | 주요 문제점 |
-|----------------|------------|
-| **출제 기간** | 초안 작성 → 검토 → 수정이 반복되어 1~2개월의 시간을 필요로 합니다. |
-| **높은 출제 비용** | 지문 세트당 백만 원 이상의 높은 원고료를 지불해야 합니다. |
-| **서면 위주 의사소통** | 출제자와 검토자가 분리되어 있는 구조로 인해, 의견 교환에 제한이 있고 즉각적인 피드백이 어렵습니다. |
+## 2️⃣ 프로젝트 성과
 
-
-##### KSAT Agent 활용 시
-
-| 항목 | 기존 | KSAT Agent 사용 시 |
+| 항목 (지문 당) | 기존  | KSAT Agent 사용 시 |
 |------|---------|--------------------|
 | **소요 시간** | 1 ~ 2 개월 | **10 분** |
-| **비용** | 100~200만 원 | **500 원** (평균 사용량 기준) |
-| **의사소통** | 서면 피드백 반복 | 기출 분석과 최신 경향을 학습한 AI와 **실시간 대화** |
+| **비용** | 100~200만 원 | **200~500 원** |
+| **의사소통** | 서면 피드백 반복 | 실시간 AI 대화 |
+
+- 기존 출제 프로세스 대비 비용과 출제 시간을 획기적으로 단축하면서도, 외주 출제자에 의존하던 비효율적인 구조를 크게 개선하였습니다.
+- 퀄리티를 유지하면서도 누구나 쉽게 고품질 모의고사 콘텐츠를 제작할 수 있습니다.
+- **강남대성수능연구소와 협업 논의가 진행 중입니다.**
 
 ---
 
-### 3️⃣ 에이전트 구조
+## 3️⃣ 결과물 예시
 
-#### 핵심 아이디어
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
+.passage-font {
+    border: 0.5px solid black;
+    border-radius: 0px;
+    padding: 5px !important;
+    margin-bottom: 20px;
+    font-family: 'Nanum Myeongjo', serif !important;
+    font-size: 11px !important;
+    line-height: 1.7;
+    letter-spacing: -0.01em;
+    font-weight: 500;
+}
+.passage-font p {
+    text-indent: 1em; /* 각 문단의 첫 줄 들여쓰기 */
+    margin-bottom: 0em;
+}
+.question-font {
+    font-family: 'Nanum Myeongjo', serif !important;
+    font-size: 11px !important;
+    line-height: 1.7em;
+    letter-spacing: -0.01em;
+    font-weight: 500;
+    margin-bottom: 1.5em;
+}
+.question-font table tr td table {
+    font-family: '돋움', Dotum, sans-serif !important;
+    font-size: 10px;
+    line-height: 1.5em;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+}
+</style>
 
-1. **역할 분담** – '주제선정·탐색·설계·집필·출제·검증·총괄' 각 단계를 전문화된 AI가 전담합니다.
-2. **순환 검토** – 검증 단계에서 오류를 발견하면 이전 단계로 피드백하여 전체 일정을 단축합니다.
-3. **대화형 인터페이스** – 사용자는 채팅 한 줄로 주제를 입력하고, 진행 상황과 결과를 실시간으로 확인합니다.
+### A. 일반 AI 결과물 (GPT 4.1)
 
+<div style="display: flex; gap: 24px;">
+  <div style="flex:1; max-width:50%;">
+    <div class="passage-font">
+      <p>한 국가의 경제에서 환율 변동은 수출과 수입, 그리고 경상수지에 다양한 영향을 미친다. 특히 'J커브 현상'은 환율이 상승(자국 통화의 가치가 하락)할 때 경상수지의 변화 양상이 단순하지 않음을 보여주는 이론이다.</p>
+      <p>예를 들어, 국내 기업들이 주로 원화로 비용을 지불하고, 수출 대금을 달러로 받는 한국 경제를 생각해 보자. 원/달러 환율이 상승하면, 달러로 표시된 상품 가격이 원화로 환산될 때 높아진다. 즉, 같은 달러 금액의 수출을 하더라도 이를 원화로 환산하면 더 많은 돈을 벌게 된다. 반면, 해외에서 수입하는 상품을 구매할 때는 더 많은 원화를 지불해야 한다.</p>
+      <p>하지만 J커브 현상이 의미하는 바는 단순히 환율이 오르면 경상수지가 바로 개선되지 않는다는 점이다. 예를 들어, 한국의 한 해 수출액이 1,000억 달러, 수입액이 900억 달러라고 가정하자. 원/달러 환율이 1,000원에서 1,200원으로 20% 상승했다고 하더라도, 대부분의 수출·수입 계약은 미리 정해진 가격과 물량에 따라 진행된다. 환율이 급등한 직후에는 수입 원화 비용이 즉시 늘어나지만, 수출 물량이나 수입 물량은 단기적으로 거의 변하지 않는다. 이로 인해 수입 대금이 증가하면서 오히려 경상수지가 일시적으로 악화될 수 있다.</p>
+      <p>시간이 지나면서 변화가 발생한다. 수입 상품의 가격이 오르면 소비자와 기업들은 대체재를 찾거나 수입을 줄이기 시작한다. 반면, 해외 시장에서는 한국 상품의 가격 경쟁력이 높아지기 때문에 수출 주문이 늘어난다. 대략 몇 개월에서 1년 정도의 시간이 흐르면, 수입은 감소하고 수출은 증가하여 경상수지가 점차 개선된다. 이 과정에서 경상수지의 변화 추이를 그래프로 나타내면, 처음에는 하락하다가 이후에 상승 곡선을 그리며 알파벳 'J'와 비슷한 형태가 나타난다.</p>
+      <p>즉, J커브 현상은 환율 상승 → 단기적 경상수지 악화 → 중장기적 경상수지 개선이라는 순차적 과정을 설명한다. 이러한 현상은 단기에는 가격 효과(환율 변동에 따른 금액 증가)가, 장기에는 수량 효과(무역량 변화에 따른 효과)가 더 크게 작용하기 때문이다.</p>
+      <p>따라서 J커브 현상은 환율정책을 운용할 때 정책 효과가 나타나는 시점과 그 원인을 이해하는 데 중요한 시사점을 제공한다.</p>
+    </div>
+  </div>
+  <div style="flex:1; max-width:50%;">
+    <div class="question-font">
+      <b>1. 다음 중 J커브 현상에 대한 설명으로 적절하지 <u>않은</u> 것은?</b><br>
+      <table style="width:100%; font-size:10px;">
+        <tr><td>ㄱ. 원/달러 환율이 상승할 경우, 경상수지는 즉시 개선된다.</td></tr>
+        <tr><td>ㄴ. 단기적으로는 수입 대금이 증가해 경상수지가 악화될 수 있다.</td></tr>
+        <tr><td>ㄷ. 시간이 지나면 수출은 증가하고 수입은 감소하여 경상수지가 개선될 수 있다.</td></tr>
+        <tr><td>ㄹ. J커브라는 명칭은 경상수지의 변화 양상이 영문자 'J'와 유사하게 나타나기 때문이다.</td></tr>
+      </table>
+      ① ㄱ  <br>② ㄴ  <br>③ ㄷ  <br>④ ㄹ  <br>⑤ ㄴ, ㄷ <br><br><br>
+      <b>2. 다음 &lt;보기&gt;는 J커브 현상과 관련된 상황을 서술한 것이다. 이에 대한 이해로 가장 적절한 것을 고르시오.</b><br>
+      <table style="width:100%; font-size:10px;">
+        <tr><td>
+          한 나라의 환율이 단기간에 15% 상승하였다. 이로 인해 수입품 가격이 즉각 오르면서, 해당 국가의 경상수지는 한동안 악화되는 모습을 보였다. 그러나 8개월이 지난 후부터 수출이 점차 늘어나고 수입이 감소하여 경상수지가 개선되기 시작하였다.<br><br>
+          경제학자 A는 이러한 현상이 국제무역 계약의 특성과 경제주체의 행동 변화가 시간이 지나면서 점진적으로 나타났기 때문이라고 설명하였다.
+        </td></tr>
+      </table>
+      ① 경상수지의 단기 악화는 환율 상승으로 인한 수입 대금 증가와 무역량의 즉각적 변화 때문이다.  <br>
+      ② J커브 현상에서는 환율이 상승한 직후부터 수출이 급격하게 증가한다.  <br>
+      ③ 환율 상승 직후, 대부분의 무역 계약은 이미 정해진 가격과 물량에 따라 이루어진다.  <br>
+      ④ 경제주체의 행동 변화는 환율 상승 직후 즉시 나타나 경상수지가 바로 개선된다.  <br>
+      ⑤ 장기적으로도 경상수지는 환율 변동과 관계없이 변하지 않는다.
+    </div>
+  </div>
+</div>
 
-#### 에이전트 역할 요약
+### B. KSAT Agent 결과물
 
-| 단계 | 에이전트 그룹 | 주요 업무 |
-|------|----------|-----------|
-| 사용자 입력 | **사용자** | 초기 주제 및 요구사항 전달 |
-| 총괄 및 주제 구체화 | **Supervisor & Subject Collector** | 전체 절차 지휘, 사용자 의도 파악 및 상세 주제/서술 구조 확정 |
-| 연구 및 설계 | **Researcher & Architecture** | 기출 지문 검색/분석, 개념 지도 초안 작성, 문단 배치 및 논리 흐름 설계, 문항 아이디어 구상 |
-| 집필 및 출제 | **Passage Editor & Question Editor** | 설계안 기반 지문 집필, 5지선다 문항 및 해설 초안 작성 |
-| 검증 | **Validator** | 지문/문항의 일관성, 논리 오류, 난이도 등 종합 검토 및 피드백/최종 승인 |
-| 최종 결과물 | **시스템** | 완성된 지문, 문항, 해설 세트 |
-
-*Validator가 "통과" 판정을 내리면 작업이 종료됩니다. Validator의 피드백에 따라 Supervisor는 이전 단계의 에이전트에게 재작업을 지시할 수 있습니다.
-
-
-#### 작업 흐름
-
-```mermaid
-flowchart TD
-    %% Supervisor 중심 워크플로우 (단방향 흐름)
-    
-    S["Supervisor"]:::super
-    
-    H(["Human Input"]):::user
-    R["Researching"]:::research
-    W["Writing"]:::edit
-    V["Validating"]:::valid
-    F(["Finish"]):::result
-    
-    H --> S
-    S --> R
-    R --> W
-    W --> V
-    V --> F
-    
-    %% Supervisor 연결
-    S <-.-> R
-    S <-.-> W
-    S <-.-> V
-    S <-.-> F
-    
-    %% 스타일링
-    classDef user fill:#cce5ff,stroke:#0066cc,stroke-width:1px
-    classDef super fill:#ffe6cc,stroke:#ff9933,stroke-width:2px,color:#ff6600,font-weight:bold
-    classDef research fill:#e6ffcc,stroke:#66cc33,stroke-width:1px
-    classDef edit fill:#f9ddff,stroke:#cc66ff,stroke-width:1px
-    classDef valid fill:#e6e6ff,stroke:#6666ff,stroke-width:1px
-    classDef result fill:#f2f2f2,stroke:#666666,stroke-width:1px
-```
+<div style="display: flex; gap: 24px;">
+  <div style="flex:1; max-width:50%;">
+    <div class="passage-font">
+      <p>수출이 수입보다 많은 상태를 무역수지가 흑자라고 하고, 수입이 수출보다 많은 상태를 무역수지가 적자라고 한다. 환율은 자국 화폐와 외국 화폐의 교환 비율을 의미하는데, 일반적으로 환율이 상승하면 수출이 증가하고 수입이 감소하여 무역수지가 개선된다고 알려져 있다. 그런데 단기적으로는 무역수지가 오히려 악화되었다가 일정 기간이 지난 후에야 개선되는 현상이 나타나기도 한다. 이러한 현상을 J커브 효과라고 하는데, 그 이유는 무역수지의 변화 추이를 그래프로 나타내면 알파벳 J와 같은 모양이 되기 때문이다.</p>
+      <p>그렇다면 J커브 효과는 왜 나타나는 것일까? 환율 변동에 따른 무역수지의 변화는 가격 효과와 물량 효과로 설명할 수 있다. 가격 효과란 환율 변동으로 인해 수출입 상품의 가격이 변동하여 무역수지가 변화하는 효과이고, 물량 효과란 가격 변동에 따라 수출입 상품의 물량이 변동하여 무역수지가 변화하는 효과이다. 환율이 상승하면 외국에서 보면 수출 상품의 가격은 이전보다 낮아지므로 수출은 증가하고, 수입 상품의 가격은 이전보다 높아지므로 수입은 감소하여 무역수지가 개선되는 것이 일반적인 경우이다.</p>
+      <p>그런데 수출입 물량은 단기적으로는 변동하지 않는 경우가 많다. 이미 체결된 수출입 계약에 따라 일정 기간은 그 계약에서 정해진 물량이 거래되고, 그 이후에도 가격 변동에 따라 물량이 조정되는 데에는 시차가 존재하기 때문이다. 따라서 단기에는 가격 효과만 나타나게 된다. 환율이 상승하여 자국 화폐의 가치가 하락하면 동일한 양의 수입 상품을 수입하기 위해 지불해야 하는 자국 화폐의 액수는 증가한다. 즉, 수입 물량은 변하지 않지만 수입에 지출되는 자국 화폐의 액수는 증가한다. 한편, 수출 상품의 경우에는 자국 화폐로 지불되는 액수는 변하지 않는다. 이로 인해 단기에는 무역수지가 악화되는 현상이 나타나게 된다. 그러나 일정 기간이 지나고 나면 수출은 증가하고 수입은 감소하는 물량 효과가 나타나기 시작하여 무역수지가 개선되는 방향으로 전환된다.</p>
+      <p>이러한 J커브 효과는 수출과 수입의 가격 탄력성이 중요한 역할을 한다. 가격 탄력성이란 상품의 가격이 변동할 때 그 가격 변동에 따라 수요나 공급이 민감하게 반응하는 정도를 말한다. 수출과 수입의 가격 탄력성이 크다면 환율 상승으로 인한 가격 변동에 따라 수출은 증가하고 수입은 감소하여 장기적으로는 무역수지가 개선되는 효과가 나타나게 된다.</p>
+    </div>
+  </div>
+  <div style="flex:1; max-width:50%;">
+    <div class="question-font">
+      <b>1. ㉠ '가격 효과'와 ㉡ '물량 효과'에 대한 이해로 적절하지 <u>않은</u> 것은?</b><br>
+      <div style="margin-left: 1em; margin-top: 7px;">
+        <div style="text-indent: -1.5em; padding-left: 1.5em;">① 환율 상승 초기에는 ㉠이 주로 작용하여, 수입품에 대한 자국 화폐 지불액이 늘어나 무역수지가 악화될 수 있다.</div>
+        <div style="text-indent: -1.5em; padding-left: 1.5em;">② ㉡은 수출입 물량이 가격 변동에 반응하여 조정되는 것으로, 일반적으로 ㉠보다 시간적 지연을 두고 나타난다.</div>
+        <div style="text-indent: -1.5em; padding-left: 1.5em;">③ ㉠과 ㉡은 환율 변동이 무역수지에 미치는 영향을 설명하는 개념으로, J커브 효과의 발생 원인을 이해하는 데 기여한다.</div>
+        <div style="text-indent: -1.5em; padding-left: 1.5em;">④ 환율 상승 시 ㉠은 수출 상품의 외화 표시 가격을 하락시키고, ㉡은 수입 상품의 물량 감소를 유발하여 무역수지를 개선시킨다.</div>
+        <div style="text-indent: -1.5em; padding-left: 1.5em;">⑤ ㉠만 고려할 경우 환율 상승은 즉각적인 무역수지 개선을 가져오지만, ㉡의 지연된 발현으로 인해 J커브 현상이 나타난다.</div>
+      </div>
+      <br>
+      <div class="question-font">
+        <b>2. 다음 &lt;보기&gt;는 환율 상승 이후 시간에 따른 무역수지 변화를 나타낸 그래프이다. 윗글을 바탕으로 &lt;보기&gt;를 이해한 내용으로 적절하지 <u>않은</u> 것은? [3점]</b><br>
+        <table style="width:100%; font-size:10px;">
+          <tr>
+            <td style="text-align: center; font-weight: bold; background-color: #f8f8f8; padding: 5px; font-size:10px;">&lt;보기&gt;</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; font-size:10px;">
+              그래프는 T<sub>0</sub> 시점에서 환율이 상승한 이후 시간 경과에 따른 무역수지의 변화를 보여준다. 가로축은 시간, 세로축은 무역수지를 나타내며, 세로축의 0은 무역수지 균형 상태를 의미한다. T<sub>1</sub>은 무역수지가 최저점에 도달하는 시점, T<sub>2</sub>는 무역수지가 다시 균형 상태로 회복되는 시점, T<sub>3</sub> 이후는 무역수지가 개선되어 흑자 상태를 유지하는 시점이다.
+              <svg width="400" height="250" viewBox="0 0 400 250" style="width:60%; min-width:240px; max-width:60%; height:auto; display:block; margin-left:auto; margin-right:auto;">
+                <line x1="50" y1="200" x2="380" y2="200" style="stroke:black;stroke-width:1" />
+                <line x1="50" y1="50" x2="50" y2="200" style="stroke:black;stroke-width:1" />
+                <text x="40" y="45" style="font-size:10px; text-anchor:end;">흑자</text>
+                <text x="40" y="128" style="font-size:10px; text-anchor:end;">0</text>
+                <text x="40" y="205" style="font-size:10px; text-anchor:end;">적자</text>
+                <text x="50" y="215" style="font-size:10px; text-anchor:middle;">T₀</text>
+                <text x="130" y="215" style="font-size:10px; text-anchor:middle;">T₁</text>
+                <text x="230" y="215" style="font-size:10px; text-anchor:middle;">T₂</text>
+                <text x="330" y="215" style="font-size:10px; text-anchor:middle;">T₃</text>
+                <text x="370" y="215" style="font-size:10px; text-anchor:middle;">시간</text>
+                <text x="15" y="128" style="font-size:10px; writing-mode:tb; text-anchor:middle;">무역수지</text>
+                <line x1="50" y1="125" x2="380" y2="125" style="stroke:gray;stroke-width:0.5;stroke-dasharray:4;" />
+                <path d="M 50 125 Q 90 180, 130 190 T 230 125 Q 280 90, 330 80 L 370 75" style="stroke:blue;stroke-width:2;fill:none;" />
+                <circle cx="50" cy="125" r="2" style="fill:blue;" />
+                <circle cx="130" cy="190" r="2" style="fill:blue;" />
+                <circle cx="230" cy="125" r="2" style="fill:blue;" />
+                <circle cx="330" cy="80" r="2" style="fill:blue;" />
+                <text x="130" y="100" style="font-size:10px; text-anchor:middle;">A 구간 (T₀-T₁)</text>
+                <text x="200" y="150" style="font-size:10px; text-anchor:middle;">B 구간 (T₁-T₂)</text>
+                <text x="300" y="60" style="font-size:10px; text-anchor:middle;">C 구간 (T₂-T₃ 이후)</text>
+              </svg>
+            </td>
+          </tr>
+        </table>
+        <div style="margin-left: 1em; margin-top: 7px; font-size:10px;">
+          <div style="text-indent: -1.5em; padding-left: 1.5em;">① A 구간(T<sub>0</sub>~T<sub>1</sub>)에서는 환율 상승에도 불구하고 수출입 물량의 단기적 경직성으로 인해 가격 효과가 두드러져, 자국 화폐 기준 수입액이 증가하면서 무역수지가 악화된다.</div>
+          <div style="text-indent: -1.5em; padding-left: 1.5em;">② A 구간(T<sub>0</sub>~T<sub>1</sub>)이 형성되는 것은 기존 수출입 계약 물량이 일정 기간 유지되고, 생산 및 소비 패턴 변경에 시간이 소요되어 물량 조정이 지연되기 때문이다.</div>
+          <div style="text-indent: -1.5em; padding-left: 1.5em;">③ B 구간(T<sub>1</sub>~T<sub>2</sub>)에서는 가격 변동에 따른 물량 효과가 점차 나타나기 시작하여 수출 물량이 늘고 수입 물량이 줄면서 무역수지가 개선되기 시작한다.</div>
+          <div style="text-indent: -1.5em; padding-left: 1.5em;">④ 만약 T<sub>0</sub> 시점에서 수출입 상품의 가격 탄력성이 현재 그래프가 가정하는 것보다 더 크다면, T<sub>1</sub> 시점의 무역수지 적자 폭은 더 깊어지고 T<sub>2</sub> 시점은 더 늦춰질 것이다.</div>
+          <div style="text-indent: -1.5em; padding-left: 1.5em;">⑤ C 구간(T<sub>2</sub>~T<sub>3</sub> 이후)에서는 물량 효과가 가격 효과를 압도하여 무역수지가 지속적으로 개선되거나 흑자 상태를 유지하며, 이는 수출입 가격 탄력성이 클수록 더 뚜렷하게 나타난다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 ---
 
-### 4️⃣ 세부 기술 구현
+## 4️⃣ 프로젝트 아키텍처
 
-#### 프로젝트 구조
+### A. 프로젝트 폴더 구조
 
 ```
 KSAT Agent/
-├── frontend/               # Streamlit 기반 웹 인터페이스 (Git 관리, Streamlit Cloud 배포)
-│   ├── pages/
-│   │   └── about.py        # 프로젝트 소개 페이지
-│   ├── app_main.py         # 메인 앱 진입점
-│   ├── requirements.txt    # Frontend 의존성 (Streamlit Cloud용)
-│   └── .streamlit/         # Streamlit 설정 (필요시)
-│
-├── backend/                # 멀티 에이전트 시스템 코어 (Git 관리)
-│   ├── DB/                 # 데이터베이스 (ChromaDB, SQLite)
-│   ├── agent_server.py     # FastAPI 서버 진입점
-│   ├── graph_factory.py    # LangGraph 워크플로우
-│   ├── agents_prompt/      # 에이전트별 프롬프트
-│   ├── tools.py            # 에이전트 공용 도구
-│   ├── handoff_tools.py    # 에이전트 핸드오프 도구
-│   ├── model_config.py     # LLM 모델 설정
-│   ├── Dockerfile          # Backend Docker 이미지 빌드용
-│   ├── docker-compose.yaml # Docker Compose 설정
-│   ├── supervisord.conf    # Supervisor 설정
-│   └── requirements.txt    # Backend 의존성
-│  
-└── Parser/                 # (참고: 기출 문제 분석 및 데이터 전처리 로직 - Git 관리 범위 외)
-
+├── backend/                    # 백엔드 서버
+│   ├── agent_server.py        # FastAPI 메인 서버
+│   ├── graph_factory.py       # LangGraph 워크플로우 정의
+│   ├── tools.py               # AI 에이전트 도구 (RAG, 검색, 핸드오프)
+│   ├── agents_prompt/         # 에이전트별 시스템 프롬프트
+│   ├── DB/                    # 데이터베이스
+│   │   ├── checkpointer/      # LangGraph 세션 체크포인트
+│   │   ├── kice/              # ChromaDB 기출 문제 벡터 저장소
+│   │   └── kice_summary/      # 기출 문제 요약 데이터
+│   ├── Dockerfile             # Docker 컨테이너 설정
+│   ├── docker-compose.yaml    # Docker Compose 설정
+│   ├── requirements.txt       # Python 의존성
+│   └── supervisord.conf       # 프로세스 관리 설정
+└── frontend_academy/           # 프론트엔드 (Streamlit)
+    ├── app_main.py            # Streamlit 메인 앱
+    ├── pages/                 # 페이지 구성
+    │   ├── about.py           # 프로젝트 소개 페이지
+    │   └── about.txt          # 소개 텍스트
+    └── utils/                 # 유틸리티 함수
+                 └── backend_client.py  # 백엔드 API 클라이언트
 ```
-
-#### 주요 기술 스택
-
-| 영역 | 기술 | 용도 |
-|------|------|------|
-| **프론트엔드** | Streamlit | 사용자 인터페이스 및 실시간 진행상황 표시 |
-| **백엔드** | FastAPI | API 서버 및 스트리밍 응답 처리 |
-| **멀티에이전트** | LangGraph | 에이전트 간 상태 관리 및 워크플로우 |
-| | LangChain | 메모리, 체인, 도구 활용 |
-| **데이터베이스** | ChromaDB | 의미 검색 및 벡터 저장소 |
-| | SQLite | 세션 상태 관리 및 체크포인트 |
-| **LLM** | OpenAI GPT-4.1 | Supervisor 에이전트 |
-| | Anthropic Claude-3.7 | Passage Editor 에이전트 |
-| | Gemini-2.5 Flash | Researcher, Question Editor, Validator, Subject Collector 에이전트 |
-| **임베딩** | OpenAI text-embedding-3 | 한국어 텍스트 벡터화 |
-| **배포** | Docker, GCP (Google Cloud Platform) | Backend 서버 컨테이너화 및 클라우드 VM 배포 |
-| | Streamlit Cloud | Frontend 웹 애플리케이션 배포 |
-| **CI/CD** | GitHub Actions | 코드 변경 시 자동 빌드 및 배포 |
-
-#### LangGraph 선택 배경
-
-수능 지문 생성은 여러 단계의 복잡한 작업이 순차적으로 이루어져야 합니다. 초기에는 단일 LLM을 사용한 접근법도 고려했으나, 다음과 같은 한계에 직면했습니다:
-```
-1. 토큰 제한에 빠르게 도달 - 수능 지문 생성에 필요한 모든 지시와 컨텍스트가 16K 토큰을 쉽게 초과
-2. 역할 혼란 - 하나의 모델이 연구자, 작가, 검토자 역할을 번갈아 수행하며 일관성 상실
-3. 전문성 결여 - 전체 태스크를 한 번에 처리하려다 보니 각 단계별 품질이 저하
-```
-LangGraph는 이러한 문제들을 해결할 수 있는 최적의 프레임워크였습니다:
-
-> **State 관리의 효율성** : LangChain의 단순 체인과 달리, LangGraph는 복잡한 상태를 그래프 노드 간에 유지하고 전달할 수 있어 여러 에이전트가 협업하기에 이상적입니다.
->
-> **유연한 워크플로우** : 조건부 경로와 순환 가능한 그래프 구조를 통해 "검증 실패 → 재작업" 같은 복잡한 워크플로우를 자연스럽게 구현할 수 있습니다.
->
-> **체크포인팅** : 내장된 체크포인트 기능을 활용하여, 장시간 실행 과정에서 발생할 수 있는 오류나 중단으로부터 상대적으로 안전하게 작업을 이어갈 수 있습니다. (본 프로젝트에서는 AsyncSqliteSaver를 사용)
-
-```python
-# graph_factory.py 중 일부
-builder = StateGraph(MultiAgentState)
-
-builder.add_node("subject_collector", subject_collector_agent) # 주제 구체화
-builder.add_node("researcher", researcher_agent)
-builder.add_node("architecture", architecture_agent)
-# ... (다른 에이전트 노드 추가) ...
-builder.add_node("validator", validator_agent)
-
-builder.add_conditional_edges( # 검증 결과에 따른 분기
-    "validator",
-    lambda state: "architecture" if state.get("validation_result") == "rewrite_architecture" else
-                 "passage_editor" if state.get("validation_result") == "rewrite_passage" else
-                 "question_editor" if state.get("validation_result") == "rewrite_question" else
-                 "END", # 최종 통과
-    {"architecture": "architecture", "passage_editor": "passage_editor", "question_editor": "question_editor", "END": END}
-)
-graph = builder.compile(checkpointer=saver) # AsyncSqliteSaver 인스턴스 주입
-```
-
-#### LLM 모델 선택
-
-각 태스크의 특성에 맞게 최적화된 LLM 모델을 사용했습니다.
-
-실제 테스트 결과, Claude는 문체와 깊이 있는 내용 생성에 강점을 보였고, Gemini는 분석과 문항 생성의 속도에서 우위를 보였습니다.
-
-이러한 모델 조합을 통해 품질과 비용 효율성 모두를 확보할 수 있었습니다.
-
-| 에이전트 | 사용 모델 | 선택 이유 |
-|---------|---------|----------|
-| **Supervisor** | ```GPT-4.1``` | • 지시사항을 정확히 이해하고 따르는 능력(instruction following)이 탁월함<br>• 사용자 친화적인 어조로 소통하며 작업 흐름을 조율<br>• 복잡한 작업 흐름을 관리하는 능력이 뛰어남 |
-| **Passage Editor** | ```Claude-3.7``` (파인튜닝 적용) | • 한국어 문체가 자연스럽고 수능 지문 스타일의 고품질 텍스트 생성<br>• 복잡한 개념도 논리적 구조를 유지하며 1,700자 내외로 압축하는 능력 탁월<br>• 내적 일관성이 높은 지문 작성 가능 |
-| **Subject Collector, Researcher, Question Editor & Validator** | ```Gemini-2.5 Flash``` | • 빠른 응답 속도로 사용자 의도 파악, 지문 분석 및 문항 생성<br>• 수학적/논리적 관계 파악에 강점, 선지 간 변별력 체크에 효과적<br>• 비용 효율적이라 반복적 검증 및 다양한 탐색 과정에 적합 |
-
-```python
-# 예시: Passage Editor 에이전트 생성 (파인튜닝 모델 사용)
-passage_editor_agent = create_react_agent(
-    model="ft:gpt-4.1-ksat-agent-passage-editor-v2", # 파인튜닝된 모델 ID
-    tools=passage_editor_tools,
-    prompt=passage_prompt
-)
-```
-
-#### 에이전트 간 작업 통제권 전환 메커니즘
-
-초기 버전에서는 에이전트 간 전환을 위해 LangGraph의 조건부 엣지를 이용했습니다. 그러나 이는 다음과 같은 문제를 야기했습니다:
-
-```
-1. 확장성 한계 - 새 에이전트 추가 시, 분기 로직과 코드를 일일이 수정해야 함
-2. 복잡한 상태 관리 - 누가 다음에 실행될지 추적하는 로직이 복잡해짐
-3. 유연성 부족 - 실행 중 워크플로우 변경이 어려움
-```
-
-이를 해결하기 위해 Supervisor 에이전트가 다음 작업자를 명시적으로 호출하고, 호출된 에이전트는 자신의 역할을 수행 후 Supervisor에게 다시 제어권을 넘기는 방식을 채택했습니다. `handoff_to_supervisor` 도구를 사용하여 이 과정을 구현했습니다.
-
-```python
-# handoff_tools.py 일부
-@tool
-async def handoff_to_supervisor(
-    # ... (매개변수 생략)
-):
-    """작업 완료 후 Supervisor에게 통제권을 넘깁니다."""
-    # ... (메시지 생성 및 상태 업데이트 로직)
-    return Command(goto="supervisor", ...) # Supervisor 노드로 이동
-```
-
-이 접근법의 장점은 Supervisor의 프롬프트와 판단 로직을 통해 워크플로우를 유연하게 관리할 수 있다는 점입니다.
-
-#### ChromaDB 선택 이유와 임베딩 전략
-
-LLM이 기출 문제를 능동적으로 검색할 수 있는 시스템을 구축하기 위해 여러 벡터 데이터베이스 옵션을 검토했습니다:
-
-> 검토한 벡터 DB 후보:
-> - Pinecone: 관리형 서비스, 확장성 우수
-> - Milvus: 고성능 분산 처리 가능
-> - ChromaDB: 경량화, 로컬 실행 가능, Python 통합 우수
-
-
-최종적으로 ChromaDB를 선택한 이유는 다음과 같습니다:
-
-1. **로컬 클라이언트**: 서버리스 환경에서도 SQLite 백엔드로 완전히 작동하여 외부 의존성 최소화. VM 환경에서 별도의 DB 서버 없이 파일 기반으로 운영 가능.
-2. **메타데이터 필터링**: 연도, 월, 영역 등의 복합 필터링을 `where` 절로 간단히 구현 가능.
-3. **임베딩 유연성**: 다양한 임베딩 모델을 쉽게 교체할 수 있는 아키텍처 지원.
-
-한국어 텍스트 임베딩을 위해 여러 모델을 벤치마크한 결과, OpenAI의 `text-embedding-3-large`가 한글 수능 지문의 의미적 유사성을 가장 정확히 포착하는 것으로 확인되어 채택했습니다.
-
-```python
-# tools.py의 ChromaDB 검색 함수 예시
-results = collection.query(
-    query_texts=[query],
-    n_results=n_results,
-    where={"year": year, "field": field} # 메타데이터 필터링
-)
-```
-
-#### 토큰 비용 관리
-
-AI 모델의 컨텍스트 제한과 비용 문제를 해결하기 위해, 일반적으로 사용되는 요약 모델 접근법 대신 독창적인 "절삭+주입" 전략을 개발했습니다:
-
-```python
-# message_reducer.py의 메시지 절삭 로직 (개념)
-# 실제 구현은 state['messages']를 직접 수정하거나, 훅(hook)을 통해 처리
-def truncate_messages_for_llm(messages: list, max_tokens: int) -> list:
-    """긴 메시지 목록을 LLM 입력 크기에 맞게 절삭합니다."""
-    # ... (토큰 수 계산 및 절삭 로직)
-    # 예: 최근 메시지 위주 보존, 시스템 메시지 보존, 중간 메시지 요약 또는 생략
-    # 현재 프로젝트에서는 앞/뒤 일부만 남기는 방식을 사용함
-    # if num_tokens(content) > TRUNCATE_THRESHOLD:
-    #     truncated = content[:500] + "\n...[중략]...\n" + content[-500:]
-    return processed_messages
-```
-
-이 접근법을 통해 얻은 이점:
-
-1. **요약 모델 비용 절감**: 추가 LLM 호출 없이 단순 절삭으로 토큰 절약.
-2. **중요 정보 보존**: 일반적으로 메시지의 앞부분(지시사항)과 뒷부분(최근 대화)에 중요 정보가 집중되어 있으므로, 이 부분을 유지.
-3. **처리 지연 최소화**: 요약 모델 호출 대비 시간 절약.
-
-실제 테스트에서 품질 저하 없이 토큰 사용량을 효과적으로 관리할 수 있었습니다.
-
----
-
-### 5️⃣ 개념 지도
-
->개념 지도에 대한 상세한 설명은 부록을 참고 부탁드립니다.
-
-#### 개념 지도 소개
-
-교육 콘텐츠 평가에서 "논리 구조가 복잡하다"나 "정보 밀도가 높다"와 같은 표현은 주관적이고 정성적인 평가에 불과했습니다. 이로 인해 난이도와 정보 밀도의 조절이 출제자의 경험과 직관에 의존해야 했고, AI를 활용한 자동화 시스템 구축이 어려웠습니다.
-
-KSAT Agent는 자체 개발한 **개념 지도**를 통해 이러한 정성적 평가를 정량화했습니다:
-
-| 기능 | 기존 방식 | 개념 지도의 효과 |
-|------|-----------|--------------------------------|
-| 논리 구조 파악 | 전문가의 주관적 평가 | **엣지 타입·깊이**를 계량화 |
-| 정보 밀도 판단 | 단순 글자수·문단수 | **노드 수 / 1천 token** 지표 |
-| 선지 생성 근거 | 수작업 검색 | 그래프 경로 탐색 |
-
-##### ① 예시 지문
-
-> "촉매는 화학 반응의 활성화 에너지를 낮춰 반응 속도를 높입니다. 그러나 촉매 자체는 반응 전후에 변하지 않습니다."
-
-##### ② 자동 추출된 그래프
-
-| 노드 ID | 라벨 | 설명 |
-|---------|------|------|
-| N1 | Catalyst | 촉매 |
-| N2 | ActivationEnergy | 활성화 에너지 |
-| N3 | ReactionRate | 반응 속도 |
-
-| 엣지 | 타입·레이블 | 의미 |
-|------|-------------|------|
-| N1→N2 | Causality · `influences` | 촉매가 에너지를 낮춤 |
-| N2→N3 | Causality · `causes` | 낮아진 에너지가 속도 증가 초래 |
-| N1→N1 | QuantComparison · `is_equal_to` | 촉매 전후 동일(자기 보존) |
-
-이러한 정량적 지표를 통해 Question Editor는 "원인→결과→불변" 경로를 선지 패턴으로 활용할 수 있습니다.
-
-이처럼 개념 지도는 논리 구조, 정보 밀도, 추론 경로를 객관적 수치로 변환하여, 개념 지도의 적용을 통해 에이전트에게 지문의 난이도와 정보 밀도를 정량적으로 주문할 수 있게 됩니다.
-
-![개념 지도 예시](frontend/pages/image.png) 
-
----
-
-### 6️⃣ 지문 작성용 LLM 파인튜닝
-
-**Problem** 
-> "본질적으로 '쉽고 직관적으로' 설명하도록 학습된 LLM 모델의 특성 상,<br>
-> 프롬프트만으로 정보의 밀도와 독해 난이도를 극적으로 향상시키기에는 한계가 있다고 느꼈다."
-
-따라서 다음의 데이터 파이프라인을 구축하여 소규모 파인튜닝을 진행한 결과, 지문 퀄리티를 극적으로 향상시킬 수 있었다. (이 과정은 `Parser/` 및 별도 스크립트를 통해 진행)
-
-| 구분 | 내용 |
-|------|------|
-| 학습 데이터 1 | LLM을 활용해 **기출 지문**에서 추출한 개념 지도 |
-| 학습 데이터 2 | 기출 지문 원문 |
-
-#### ① SFT 데이터셋 생성 파이프라인
-
-| 단계               | 스크립트 (`Parser/` 및 관련 스크립트)        | 핵심 로직·함수                                                   | 산출물                                     |
-| ---------------- | --------------------------------- | ---------------------------------------------------------- | --------------------------------------- |
-| **1. 기출 txt 파싱** | `concept_map_converter.py` (가칭)   | `passage_parser()` 〈줄바꿈·특수 기호 정리〉                          | `passage` (*str*)                       |
-| **2. 개념 지도 변환**  | `convert_concept_map_async()` (가칭) | Gemini-2.5-flash -> JSON (15 ± 5 노드)                       | `concept_map.json`                      |
-| **3. JSONL 빌드**  | `training_data_generator_async()` (가칭) | 3-turn 메시지 샘플<br>`system→user(concept)→assistant(passage)` | `…training_dataset.jsonl`               |
-| **4. 검증·Split**  | `data_validation_cli.py` (가칭)     | 토큰·포맷 검사 → 90 / 10 split                                   | `train.jsonl` (76) <br>`val.jsonl` (10) |
-
-> *데이터 통계* : 전체 ≈ 12 만 tokens, 1 샘플 평균 1 500 tokens
-
----
-
-#### ② Fine-Tune 설정 (OpenAI)
-
-
-| 파라미터       | 값                                           | 비고             |
-| ---------- | ------------------------------------------- | -------------- |
-| Base model | `gpt-4.1-2025-04-14`                        | 2025-Q2 공개     |
-| Epochs     | 3 (*auto*)                                  | 데이터 소량, 과적합 방지 |
-| Batch / LR | auto / default                              |                |
-| Run ID     | `ft:gpt-4.1-…:ksat-agent-passage-editor-v2` |                |
-
-**결과 지표**
-
-| Metric          | 값         |
-| --------------- | --------- |
-| Train loss      | **0.274** |
-| Valid loss      | **0.255** |
-| Full valid loss | 0.302     |
-
-(loss gap ≈ 0.02 → 안정 수렴)
-
----
-
-#### ③ Inference 파라미터 (안정 preset)
-
-```python
-gen_cfg = {
-    "model": "ft:gpt-4.1-ksat-agent-passage-editor-v2",
-    "temperature": 0.30,
-    "top_p": 0.85,
-    "repetition_penalty": 1.2,
-    "max_tokens": 1200,
-}
-```
-
-* `temperature 0.5` : 논리 일관성↑
-* `top_p 0.85`      : 기본값에 비해 보수적으로 책정하여 문체 일관성↑
-* `repetition_penalty 1.2` : 꼬리 반복 현상상 90 %↓
-
----
-
-#### ④ 정량적 개선 결과
-
-| 지표                 | 프롬프트 Only | Fine-Tune 후 | 개선폭    |
-| ------------------ | --------- | ----------- | ------ |
-| 단락별 "정의→인과→비교" 완성률 | 38 %      | **71 %**    | +33 %p |
-| 매력적 오답(값·조건 교란) 비율 | 42 %      | **88 %**    | +46 %p |
-| 중복·불필요 문장 비중       | 12 %      | **3 %**     | -9 %p  |
-| 수능 전문가 총점(5점 만점)   | 3.0       | **4.5**     | +1.5   |
-
----
-
-#### ⑤ 주요 이슈 & 해결책
-
-| 이슈                                 | 해결 방법                                  |
-| ---------------------------------- | -------------------------------------- |
-| 동일 문장, 문단 반복                       | `repetition_penalty=1.2` + Top-k 노드 필터 |
-| 이상한 문자열이 출력되는 현상                      | `temperature=0.6` 하향 조정 |
-
----
-
-### 7️⃣ 서버 아키텍처
-
-#### 7.1 다중 사용자 세션 관리
-
-다중 사용자 환경에서 각 사용자의 작업 상태를 안전하게 관리하기 위해 세 가지 핵심 요소를 도입했습니다:
-
-| 요소 | 사용 기술 | 주요 기능 |
-|------|-----------|----------|
-| **대화 상태** | `MultiAgentState` (`TypedDict`) | 에이전트 간 메시지·요약·검색 결과를 단일 객체로 공유 |
-| **세션 DB** | `AsyncSqliteSaver` | Stream lit 다중 사용자 환경에서 세션별 체크포인트 유지 |
-| **만료 정리** | `cleanup_old_sessions()` | 24 시간 후 SQLite 파일 자동 삭제로 디스크 사용 최소화 |
-
-이를 통해 여러 사용자가 동시에 시스템을 사용해도 각 작업이 완전히 분리되어 관리되며, 
-
-만약 작업 중 오류가 발생하더라도 서버 DB에 저장된 세션을 불러와 마지막 체크포인트부터 작업을 재개할 수 있습니다:
-
-```python
-# 각 사용자별 독립된 세션 데이터베이스 생성
-memory = await aiosqlite.connect(f"sessions/{user_id}_{timestamp}.db")
-saver  = AsyncSqliteSaver(memory)
-await saver.setup()          # 필요한 테이블 자동 생성
-
-# 중요 작업 단계마다 상태 스냅샷 저장
-await saver.flush(state)     # 체크포인트 생성
-```
-
-
-#### 7.2 실시간 스트리밍 구현
-
-작업 시간이 5-10분 정도 소요되는 시스템에서는 사용자에게 진행 상황을 실시간으로 보여주는 것이 중요합니다. 
-
-이를 위해 FastAPI의 스트리밍 기능과 LangGraph의 `astream` 기능을 결합했습니다:
-
-```python
-@app.post("/chat/stream")
-async def chat_stream_endpoint(request: ChatRequest):
-    """실시간으로 에이전트 작업 과정을 스트리밍합니다"""
-    async def event_generator():
-        # 각 에이전트의 작업 과정을 실시간으로 스트림으로 전송
-        async for item in stream_agent_response(request):
-            # 줄바꿈을 추가해 클라이언트가 각 이벤트를 구분할 수 있게 함
-            yield item + "\n"
+### B. 시스템 아키텍처
+
+KSAT Agent의 시스템 구조도입니다.
+
+- **User Layer**: 사용자 브라우저 인터페이스
+- **Presentation Layer**: Streamlit 기반 웹 UI, 사용자 상호작용 처리
+- **Application Layer**: FastAPI 서버, LangGraph 엔진, AI 에이전트들, 커스텀 도구
+- **Data Layer**: ChromaDB 벡터 저장소(RAG), SQLite 세션 체크포인트
+- **Infrastructure Layer**: Docker 컨테이너, Docker Compose, Supervisor 프로세스 관리
+
+```mermaid
+graph TD
+    %% User Layer
+    subgraph USER_LAYER ["User Layer"]
+        direction LR
+        USER[👤 User / Client Browser]
+    end
+
+    %% Presentation Layer (Frontend)
+    subgraph FRONTEND_LAYER ["Presentation Layer (Frontend)"]
+        direction LR
+        STREAMLIT_UI["Streamlit Web UI"]
+    end
+
+    %% Application Layer (Backend)
+    subgraph BACKEND_LAYER ["Application Layer (Backend)"]
+        direction LR
+        subgraph FASTAPI_SERVER ["FastAPI Server"]
+            direction TB
+            API_GW["API Gateway (REST/SSE Endpoints)"]
+            LANGGRAPH_ENGINE["LangGraph Engine"]
+        end
+        
+        subgraph AGENTS ["AI Agents"]
+            direction TB
+            SUPERVISOR_AGENT["Supervisor (GPT-4.1)"]
+            PASSAGE_AGENT["Passage Editor (Fine-tuned LLM)"]
+            QUESTION_AGENT["Question Editor (LLM)"]
+        end
+
+        subgraph BACKEND_TOOLS ["Backend Tools"]
+            direction TB
+            CUSTOM_TOOLS["Custom Tools (RAG, Mermaid, etc.)"]
+            EXTERNAL_APIS["External APIs (Google Search, LLMs)"]
+        end
+    end
+
+    %% Data Layer
+    subgraph DATA_LAYER ["Data Layer"]
+        direction LR
+        CHROMA_DB["ChromaDB (Vector Store - RAG)"]
+        SQLITE_DB["SQLite (Session Checkpoints)"]
+    end
+
+    %% Infrastructure Layer
+    subgraph INFRA_LAYER ["Infrastructure Layer"]
+        direction LR
+        DOCKER["Docker Container"]
+        COMPOSE["Docker Compose"]
+        SUPERVISOR_INFRA["Supervisor (Process Manager)"]
+    end
+
+    %% Connections
+    USER --> STREAMLIT_UI
+    STREAMLIT_UI -- "HTTP/WebSocket (SSE)" --> API_GW
     
-    # 브라우저에 지속적인 연결 유지를 위한 헤더 설정
-    return StreamingResponse(
-        event_generator(),
-        media_type="application/json",
-        headers={
-            "Cache-Control": "no-cache",  # 캐싱 방지
-            "Connection": "keep-alive",   # 연결 유지
+    API_GW --> LANGGRAPH_ENGINE
+    
+    LANGGRAPH_ENGINE -- "Workflow Orchestration" --> AGENTS
+    AGENTS -- "Tool Invocation" --> CUSTOM_TOOLS
+    AGENTS -- "API Calls" --> EXTERNAL_APIS
+    
+    CUSTOM_TOOLS -- "Data Retrieval/Storage" --> CHROMA_DB
+    CUSTOM_TOOLS -- "Data Retrieval/Storage" --> SQLITE_DB
+    LANGGRAPH_ENGINE -- "State Persistence" --> SQLITE_DB
+    
+    EXTERNAL_APIS -- "LLM API Providers, Google API" --> INTERNET[🌐 Internet]
+
+    %% Deployment
+    FASTAPI_SERVER -.-> DOCKER
+    DOCKER -.-> COMPOSE
+    COMPOSE -.-> SUPERVISOR_INFRA
+
+    %% Styling (Optional - for better readability if supported)
+    classDef user fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef frontend fill:#9cf,stroke:#333,stroke-width:2px;
+    classDef backend fill:#lightgrey,stroke:#333,stroke-width:2px;
+    classDef data fill:#9f9,stroke:#333,stroke-width:2px;
+    classDef infra fill:#fcf,stroke:#333,stroke-width:2px;
+    classDef external fill:#ff9,stroke:#333,stroke-width:2px;
+
+    class USER_LAYER,USER frontend;
+    class FRONTEND_LAYER,STREAMLIT_UI frontend;
+    class BACKEND_LAYER,FASTAPI_SERVER,API_GW,LANGGRAPH_ENGINE,AGENTS,SUPERVISOR_AGENT,PASSAGE_AGENT,QUESTION_AGENT,BACKEND_TOOLS,CUSTOM_TOOLS,EXTERNAL_APIS backend;
+    class DATA_LAYER,CHROMA_DB,SQLITE_DB data;
+    class INFRA_LAYER,DOCKER,COMPOSE,SUPERVISOR_INFRA infra;
+    class INTERNET external;
+```
+
+---
+
+## 5️⃣ 작업 워크플로우 설명
+
+```mermaid
+sequenceDiagram
+    participant U as 👤 사용자
+    participant S as 🎯 Supervisor
+    participant PE as ✍️ Passage Editor
+    participant QE as ❓ Question Editor
+
+    U->>S: 주제/요청 입력
+    S->>PE: 지문 생성 지시 (개요/컨셉 전달)
+    PE-->>S: 생성된 지문 전달
+    S->>QE: 문항 출제 지시 (지문 전달)
+    QE-->>S: 출제된 문항/해설 전달
+    S->>U: 최종 결과물 (지문+문항) 제시
+    U->>S: (선택) 피드백/수정 요청
+    S->>PE: (필요시) 지문 수정 지시
+    PE-->>S: (필요시) 수정된 지문 전달
+    S->>QE: (필요시) 문항 수정 지시
+    QE-->>S: (필요시) 수정된 문항 전달
+    S->>U: (필요시) 수정된 결과물 제시
+```
+
+### 1단계: 사용자 입력 및 서버 수신
+
+사용자가 Streamlit UI에서 주제나 요청을 입력하면, 프론트엔드에서 세션ID와 함께 백엔드 FastAPI 서버의 `/chat/stream` 엔드포인트로 전송됩니다. 서버는 세션별 LangGraph 인스턴스를 생성/관리합니다.
+
+```python
+# 프론트엔드: 채팅 입력 처리
+prompt = st.chat_input("ex) 논리학 이론을 다룬 지문을 작성해 줘")
+if prompt:
+    response = backend_client.send_message(prompt, st.session_state.session_id)
+
+# 백엔드: 세션별 그래프 관리
+async def get_session_graph(session_id):
+    if session_id in session_graphs:
+        return session_graphs[session_id]
+    db_path = find_latest_db_path(session_id)
+    memory = await aiosqlite.connect(db_path)
+    saver = AsyncSqliteSaver(memory)
+    await saver.setup()
+    graph = create_compiled_graph(memory=saver)
+    session_graphs[session_id] = {"graph": graph, "memory": memory, "db_path": db_path}
+    return session_graphs[session_id]
+```
+
+### 2단계: LangGraph 워크플로우 시작 및 Supervisor 분석
+
+입력된 메시지가 `MultiAgentState`로 변환되어 LangGraph의 `START` 노드에서 `supervisor` 노드로 전달됩니다. Supervisor는 사용자 요청을 분석하고, 지문 생성이 필요한지 문항 생성이 필요한지 판단합니다. 필요시 RAG 검색이나 웹 검색 도구를 먼저 호출합니다.
+
+```python
+# 그래프 실행 시작
+inputs = {"messages": [HumanMessage(content=req.prompt)]}
+cfg = {"configurable": {"thread_id": req.session_id}, "recursion_limit": 100}
+async for chunk in graph.astream(inputs, config=cfg, subgraphs=True, stream_mode="messages"):
+
+# supervisor_agent (create_react_agent 기반)
+# - 모델: Model_gemini_2_5_pro
+# - 도구: supervisor_tools (call_passage_editor, call_question_editor, retrieve_data 등)
+# - 프롬프트: supervisor_system_prompt
+```
+
+### 3단계: Passage Editor 호출 및 지문 생성
+
+Supervisor가 지문 생성/수정이 필요하다고 판단하면 `call_passage_editor` 도구를 호출합니다. Passage Editor는 Fine-tuned 모델(Model_ksat_v5_0601)을 사용하여 수능 국어 독서 지문을 생성합니다. 필요시 기출 DB 검색을 수행합니다.
+
+```python
+@tool
+async def call_passage_editor(summary: Optional[str], request: Optional[str], ...):
+    """passage_editor 에이전트를 호출하는 도구입니다."""
+    # LangGraph Command로 에이전트 간 제어권 이양
+    return Command(
+        graph=Command.PARENT,  # 상위 그래프 수준에서 실행
+        goto=Send("passage_editor", {  # passage_editor 노드로 이동
+            "summary": summary, 
+            "request": request, 
+            "passage": pre_passage
+        }),
+        update={
+            "messages": state["messages"] + [tool_message],
+            "current_agent": "passage_editor",  # 현재 활성 에이전트 표시
+        }
+    )
+
+# passage_editor_agent
+# - 모델: Model_ksat_v5_0601 (Fine-tuned GPT-4.1)
+# - 도구: passage_editor_tools (retrieve_data, google_search_node 등)
+```
+
+### 4단계: Question Editor 호출 및 문항 생성
+
+Passage Editor 작업 완료 시 `return` 노드를 거쳐 Supervisor로 제어권이 돌아갑니다. Supervisor가 문항 생성이 필요하다고 판단하면 `call_question_editor` 도구를 호출하여 생성된 지문과 함께 전달합니다. Question Editor는 지문을 바탕으로 수능 독서 문항을 출제합니다.
+
+```python
+@tool
+async def call_question_editor(request: Optional[str], passage: str, ...):
+    """question_editor 에이전트를 호출하는 도구입니다."""
+    # 지문과 함께 Question Editor로 제어권 이양
+    return Command(
+        graph=Command.PARENT,
+        goto=Send("question_editor", {
+            "passage": passage,  # 필수: 문항 출제 대상 지문
+            "request": request,  # 선택: 사용자 세부 요청사항
+            "question": question
+        }),
+        update={
+            "messages": state["messages"] + [tool_message],
+            "current_agent": "question_editor",
+        }
+    )
+
+# question_editor_agent
+# - 모델: Model_gemini_2_5_pro
+# - 도구: question_editor_tools (use_question_artifact, retrieve_data)
+```
+
+### 5단계: 최종 결과물 생성 및 스트리밍 반환
+
+Question Editor가 문항 생성을 완료하면 `return` 노드를 거쳐 Supervisor로 복귀합니다. Supervisor는 최종 검토를 진행하고 완성된 지문과 문항을 사용자에게 반환합니다. 모든 과정은 SSE(Server-Sent Events) 스트리밍으로 실시간 전송됩니다.
+
+```python
+# 최종 결과물 스트리밍 반환
+async def stream_agent_response(req):
+    session_data = await get_session_graph(req.session_id)
+    graph = session_data["graph"]
+    inputs = {"messages": [HumanMessage(content=req.prompt)]}
+    cfg = {"configurable": {"thread_id": req.session_id}, "recursion_limit": 100}
+    
+    async for chunk in graph.astream(inputs, config=cfg, subgraphs=True, stream_mode="messages"):
+        # ToolMessage/AIMessage 구분하여 프론트엔드에 실시간 전송
+        if chunk[0] == "supervisor" and isinstance(chunk[1]["messages"][-1], AIMessage):
+            yield f"data: {json.dumps({'content': content, 'type': 'ai_message'})}\n\n"
+```
+
+
+---
+
+## 6️⃣ LangGraph 구현
+
+```mermaid
+graph TD
+    START([시작]) --> supervisor[🎯 Supervisor Agent]
+    
+    supervisor -->|call_passage_editor| passage_editor[✍️ Passage Editor Agent]
+    supervisor -->|call_question_editor| question_editor[❓ Question Editor Agent]
+    
+    passage_editor --> return_node[↩️ Return Node]
+    question_editor --> return_node
+    
+    return_node --> supervisor
+    
+    %% 도구 연결
+    supervisor -.->|retrieve_data| db1[(📊 ChromaDB<br/>기출 지문)]
+    supervisor -.->|google_search_node| web[🌐 Google Search]
+    
+    passage_editor -.->|retrieve_data| db1
+    passage_editor -.->|google_search_node| web
+    
+    question_editor -.->|retrieve_data| db1
+    question_editor -.->|use_question_artifact| output[📝 Question Output]
+    
+    %% 스타일링
+    classDef agent fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000
+    classDef node fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000
+    classDef db fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000
+    classDef tool fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
+    classDef external fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#000
+    
+    class supervisor,passage_editor,question_editor agent
+    class return_node node
+    class db1 db
+    class output tool
+    class web external
+```
+
+### A. LangGraph 주요 컴포넌트
+
+**State (상태)**  
+에이전트 간 공유되는 전역 상태 객체로, 대화 히스토리, 생성된 컨텐츠, 세션 정보 등을 저장합니다. `add_messages` 리듀서를 통해 메시지가 자동으로 누적되며, 모든 에이전트가 동일한 상태에 접근하여 일관된 작업 흐름을 보장합니다.
+
+**Node (노드)**  
+개별 에이전트나 함수 단위의 작업 노드로, 각각 특정한 역할을 담당합니다. `create_react_agent`로 생성된 에이전트 노드는 자체적으로 도구 호출과 응답 생성을 수행하며, 일반 함수 노드는 상태 변환이나 라우팅 로직을 처리합니다.
+
+**Edge (엣지)**  
+노드 간 연결과 데이터 흐름을 정의하는 방향성 간선입니다. 정적 엣지는 고정된 경로를 정의하고, 조건부 엣지는 상태에 따라 동적으로 다음 노드를 결정합니다. `Command` 객체를 통해 런타임에 동적 라우팅도 가능합니다.
+
+### B. State 공유 구조
+
+**State 스키마 정의**:
+
+```python
+# 공통 스키마
+class MultiAgentState(AgentState):
+    messages: Annotated[List[BaseMessage], merge_messages]  # 커스텀 리듀서
+    current_agent: str | None = None      # 현재 활성 에이전트 추적
+    summary: str = ""                     # 주제 요약
+    passage: str = ""                     # 생성된 지문
+    question: str = ""                    # 생성된 문항
+    request: str = ""                     # 사용자 요청사항
+
+# Question Editor 전용 상태
+class QuestionEditorState(MultiAgentState):
+    messages: Annotated[List[BaseMessage], add_messages]  # 기본 리듀서 사용
+    passage: str      # 필수: 문항 출제 대상 지문
+    request: str      # 선택: 세부 요청사항
+    question: str     # 기존 문항 (수정 시)
+```
+
+##### **MultiAgentState 필드별 에이전트 참조 여부**:
+
+| field | Supervisor | Passage Editor | Question Editor | 설명 |
+|------------|:-------------:|:------------------:|:------------------:|------|
+| **messages** | 👀 참조 | - | - | 전체 대화 내역 |
+| **summary** | ✍️ **생성** | 👀 참조 | - | 개요 |
+| **passage** | 👀 참조 | ✍️ **생성** | 👀 **참조** | 지문 |
+| **question** | 👀 참조 | - | ✍️ **생성** | 문항 |
+| **request** | ✍️ **생성** | 👀 참조 | 👀 참조 | 사용자 요청사항 |
+
+
+
+
+### C. ReAct Agent 구현 (by LangGraph Prebuilt)
+
+```python
+from langgraph.prebuilt import create_react_agent
+
+# Supervisor 에이전트
+supervisor_agent = create_react_agent(
+    model=Model_gemini_2_5_pro,
+    state_schema=MultiAgentState,
+    tools=supervisor_tools,  # [call_passage_editor, call_question_editor, retrieve_data, google_search_node]
+    prompt=supervisor_system_prompt  # "당신은 수능 국어 독서 출제 작업을 총괄하는 슈퍼바이저입니다..."
+)
+
+# Passage Editor 에이전트 (Fine-tuned)
+passage_editor_agent = create_react_agent(
+    model=Model_ksat_v5_0601,  # Fine-tuned GPT-4.1
+    state_schema=MultiAgentState,
+    tools=passage_editor_tools,  # [retrieve_data, google_search_node]
+    prompt=passage_editor_system_prompt  # "당신은 수능 국어 독서 지문 전문 작성자입니다..."
+)
+
+# Question Editor 에이전트
+question_editor_agent = create_react_agent(
+    model=Model_gemini_2_5_pro,
+    state_schema=QuestionEditorState,
+    tools=question_editor_tools,  # [use_question_artifact, retrieve_data]
+    prompt=question_editor_system_prompt  # "당신은 수능 국어 독서 문항 전문 출제자입니다..."
+)
+```
+
+### D. 그래프 컴파일 및 실행
+
+```python
+def create_compiled_graph(memory):
+    builder = StateGraph(MultiAgentState)
+    
+    # 노드 추가
+    builder.add_node("supervisor", supervisor_agent)
+    builder.add_node("passage_editor", passage_editor_agent)
+    builder.add_node("question_editor", question_editor_agent)
+    builder.add_node("return", return_node)
+    
+    # 엣지 연결
+    builder.add_edge(START, "supervisor")
+    builder.add_edge("passage_editor", "return")
+    builder.add_edge("question_editor", "return")
+    
+    # 체크포인터와 함께 컴파일
+    compiled_graph = builder.compile(checkpointer=memory, debug=DEBUG)
+    return compiled_graph
+```
+
+---
+
+## 7️⃣ Tool 구현
+
+### A. ChromaDB 기반 RAG 시스템
+
+#### ChromaDB 선택 이유
+- **경량성**: SQLite 기반으로 별도 서버 불필요, 컨테이너 환경에 최적화
+- **임베딩 통합**: OpenAI embedding 함수 내장으로 벡터 변환 자동화
+- **메타데이터 필터링**: 분야별/연도별 정확한 필터링 지원
+- **의미적 검색**: 코사인 유사도 기반 고품질 의미 검색
+
+#### 임베딩 구조 설계
+```
+📊 ChromaDB 컬렉션: kice_materials_v2
+├── 🎯 지문 (documents): text-embedding-3-large로 벡터화
+└── 📋 메타데이터 (metadatas):
+    ├── field: "인문,사회,과학,기술,예술" (분야)
+    ├── year: "2017~2025" (출제년도)
+    ├── exam_type: "수능,6월,9월" (시험 구분)
+    └── qna_details: JSON {
+        "questions": [...],  # 문항 목록
+        "answers": [...],    # 정답 목록  
+        "explanations": [...], # 해설 목록
+        "stats": {...}       # 정답률 등 통계
+    }
+```
+
+**설계 취지**: 지문 내용만 벡터화하고 문항/해설/정답률은 메타데이터로 분리하여 **지문 단위 의미 검색 극대화**
+
+### B. DB RAG 도구 구현
+
+```python
+@tool
+async def retrieve_data(
+    query: str,
+    tool_call_id: Annotated[str, InjectedToolCallId],
+    state: Annotated[dict, InjectedState],
+    field: List[Literal['인문','사회','예술','기술','과학']] | None = None,
+):
+    """기출 DB에서 텍스트 쿼리와 메타데이터 필터를 사용하여 관련 지문을 검색합니다."""
+    
+    # ChromaDB 연결 및 임베딩 함수 설정
+    client = chromadb.PersistentClient(path=db_path, settings=Settings(anonymized_telemetry=False))
+    collection = client.get_collection(
+        name="kice_materials_v2",
+        embedding_function=OpenAIEmbeddingFunction(
+            model_name="text-embedding-3-large",
+            api_key=os.environ.get("OPENAI_API_KEY")
+        )
+    )
+    
+    # 분야별 필터링 처리
+    if field:
+        for field_item in fields_list:
+            where_filter = {"field": field_item}
+            raw_results = await asyncio.to_thread(
+                collection.query,
+                query_texts=[query],
+                n_results=n_results,
+                where=where_filter,
+                include=['documents', 'metadatas', 'distances']
+            )
+            
+    # 유사도 기준 정렬 및 결과 포맷팅
+    all_results_intermediate.sort(key=lambda x: x["distance"])
+    final_results = all_results_intermediate[:n_results]
+    
+    # ToolMessage로 상태 업데이트
+    tool_message = ToolMessage(content=reference_content, tool_call_id=tool_call_id)
+    return Command(update={"messages": state["messages"] + [tool_message]})
+```
+
+**동작 원리**:
+1. **쿼리 임베딩**: 입력 텍스트를 text-embedding-3-large로 벡터화
+2. **의미적 검색**: ChromaDB가 코사인 유사도로 관련 지문 검색
+3. **메타데이터 필터**: 분야/연도 조건으로 결과 정제
+4. **결과 통합**: 여러 분야 검색 시 유사도 기준 통합 정렬
+5. **상태 업데이트**: 검색 결과를 ToolMessage로 에이전트에 전달
+
+### C. Web Search 도구 구현
+
+```python
+@tool
+async def google_search_node(
+    query: str,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId]
+):
+    """Google 검색 도구, 최신 정보 검색 시 사용합니다."""
+    
+    from google import genai
+    from google.genai.types import Tool, GenerateContentConfig, GoogleSearch
+    
+    # Google Gemini + Search 통합 호출
+    client = genai.Client()
+    google_search_tool = Tool(google_search=GoogleSearch())
+    
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=f"주제에 대한 상세한 원리를 조사: {query}",
+        config=GenerateContentConfig(
+            tools=[google_search_tool],
+            response_modalities=["TEXT"],
+        )
+    )
+    
+    # 검색 결과와 출처 정보 추출
+    result = ''.join([part.text for part in response.candidates[0].content.parts])
+    grounding_sources = [
+        f"- [{site.web.title}]({site.web.uri})"
+        for site in response.candidates[0].grounding_metadata.grounding_chunks
+    ]
+    
+    # 결과를 ToolMessage로 상태 업데이트
+    tool_message = ToolMessage(
+        content=f"### Google 검색 결과\n{result}\n#### 출처\n" + '\n'.join(grounding_sources),
+        tool_call_id=tool_call_id
+    )
+    return Command(update={"messages": state["messages"] + [tool_message]})
+```
+
+**특징**:
+- **Gemini 통합**: Google의 Gemini 모델과 실시간 검색 API 연동
+- **출처 추적**: 검색 결과의 웹사이트 출처 정보 자동 포함
+- **컨텍스트 요약**: 단순 링크가 아닌 AI가 요약한 핵심 정보 제공
+
+### D. Handoff 도구
+
+#### call_passage_editor 도구
+
+```python
+@tool
+async def call_passage_editor(
+    summary: Optional[str],
+    request: Optional[str],
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+):
+    """passage_editor 에이전트를 호출하는 도구입니다."""
+    
+    pre_passage = state.get("passage", "")
+    tool_message = ToolMessage(
+        content="passage_editor 에이전트를 호출합니다.",
+        tool_call_id=tool_call_id,
+    )
+    
+    # LangGraph Command로 에이전트 간 제어권 이양
+    return Command(
+        graph=Command.PARENT,  # 상위 그래프 수준에서 실행
+        goto=Send("passage_editor", {  # passage_editor 노드로 이동
+            "summary": summary, 
+            "request": request, 
+            "passage": pre_passage
+        }),
+        update={
+            "messages": state["messages"] + [tool_message],
+            "current_agent": "passage_editor",  # 현재 활성 에이전트 표시
         }
     )
 ```
 
-이 구현을 통해 사용자는 실시간 진행 상황을 토큰 단위로 확인할 수 있습니다.
+#### call_question_editor 도구
 
-서버-클라이언트 간 데이터 전송을 위해 SSE(Server-Sent Events) 대신 단순 JSON 라인 형식을 채택하여 토큰 단위 전송-파싱 과정을 단순화했습니다.
+```python
+@tool
+async def call_question_editor(
+    request: Optional[str],
+    passage: str,
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+):
+    """question_editor 에이전트를 호출하는 도구입니다."""
+    
+    question = state.get("question", "")
+    tool_message = ToolMessage(
+        content="question_editor 에이전트를 호출합니다.",
+        tool_call_id=tool_call_id,
+    )
+    
+    # 지문과 함께 Question Editor로 제어권 이양
+    return Command(
+        graph=Command.PARENT,
+        goto=Send("question_editor", {
+            "passage": passage,  # 필수: 문항 출제 대상 지문
+            "request": request,  # 선택: 사용자 세부 요청사항
+            "question": question
+        }),
+        update={
+            "messages": state["messages"] + [tool_message],
+            "current_agent": "question_editor",
+        }
+    )
+```
 
-#### 7.3 운영 환경
+**Handoff 메커니즘**:
+1. **도구 호출**: Supervisor가 상황에 맞는 call_* 도구 선택
+2. **Command 반환**: LangGraph의 `Command` 객체로 제어권 이양 명령
+3. **노드 이동**: `goto=Send()`로 특정 에이전트 노드로 직접 이동
+4. **상태 전달**: 필요한 컨텍스트(지문, 요청사항 등)를 타겟 에이전트에 전달
+5. **자동 복귀**: 작업 완료 시 `return` 노드를 거쳐 자동으로 Supervisor로 복귀
 
-KSAT Agent 백엔드 시스템은 안정적이고 확장 가능한 운영을 위해 다음과 같은 환경으로 구성되어 있습니다.
-
-*   **실행 환경**: 애플리케이션은 Docker 컨테이너로 패키징되어, GCP (Google Cloud Platform) Compute Engine VM 인스턴스에서 실행됩니다. 이를 통해 개발 환경과 운영 환경의 일관성을 유지하고 배포를 용이하게 합니다.
-
-*   **프로세스 관리**: 컨테이너 내부에서는 Supervisor가 메인 애플리케이션 서버 프로세스(Uvicorn 기반 FastAPI 서버)를 관리합니다. Supervisor는 애플리케이션의 예상치 못한 종료 시 자동으로 재시작하여 서비스의 안정성을 높이며, 로그 관리 기능을 제공합니다.
-
-*   **지속적 통합 및 배포 (CI/CD)**: GitHub Actions를 활용하여 CI/CD 파이프라인을 구축했습니다. GitHub 저장소의 `main` 브랜치에 코드가 푸시되면, GitHub Actions가 자동으로 VM 서버에 접속하여 최신 코드를 가져오고, Docker 이미지를 재빌드한 후 컨테이너를 재시작합니다. 이 자동화된 프로세스는 신속하고 일관된 배포를 보장합니다.
-
-*   **인프라 구성**:
-    *   **Dockerfile (`backend/`)**: 백엔드 애플리케이션 실행에 필요한 모든 종속성(Python 버전, 라이브러리 등)과 환경 설정을 정의합니다.
-    *   **docker-compose.yaml (`backend/`)**: Docker 컨테이너의 빌드 방식, 포트 매핑, 볼륨 설정, 재시작 정책 등을 정의하여 애플리케이션 실행을 관리합니다.
-    *   **supervisord.conf (`backend/`)**: Supervisor가 관리할 프로세스의 실행 명령어, 자동 시작/재시작 정책, 로그 경로 등을 설정합니다.
-    *   **requirements.txt (`frontend/`, `backend/`)**: 각 애플리케이션의 Python 의존성을 명시합니다.
-    *   **.env (`backend/`)**: API 키와 같은 민감한 환경 변수를 관리합니다. 이 파일은 Git 저장소에 포함되지 않으며, 서버에 직접 설정됩니다.
 
 ---
-### 8️⃣ 맺음말
 
-KSAT Agent는 기존 출제 프로세스를 상당 부분 효율화할 수 있을 것으로 기대합니다. 투입 비용을 낮춤으로써, 양질의 문항이 저렴한 가격에 공급될 수 있기를 바랍니다. 
+## 8️⃣ 서버 구현 및 배포 구조
 
-KSAT Agent가 교사와 학생들에게 실질적인 이로움을 가져다 주고, 나아가 교육 콘텐츠 제작의 패러다임을 바꾸는 계기가 되면 좋겠습니다. 
+### A. 전체 인프라 개요
 
-감사합니다.
+- **클라우드 환경**: GCP Compute Engine (Ubuntu 22.04, e2-standard-2, 2vCPU/8GB)
+- **배포 방식**: Docker 컨테이너 기반 자동화 배포
+- **CI/CD**: Github Actions로 빌드/배포 자동화
+- **네트워크**: HTTP/HTTPS 방화벽 오픈, 외부 IP 연결
+- **운영**: Supervisor로 프로세스 관리, 장애 자동복구
 
 
-<br>
-<br>
+### B. FastAPI 서버 구조 (agent_server.py)
 
-### :bulb: 부록 : # 개념 지도 스키마 v6.0 매뉴얼
-*수능 독서 고난도 지문 설계를 위한 통합 프레임워크*
+- **비동기 REST API**: `/chat/stream` 등 엔드포인트 제공
+- **세션별 LangGraph 인스턴스/DB 관리**
+- **SSE 기반 실시간 스트리밍 응답**
+- **CORS, 보안, 세션 만료 자동 정리**
 
-## 1. 개요 및 필요성
+```python
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+import aiosqlite, os, time, glob
+from contextlib import asynccontextmanager
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from graph_factory import create_compiled_graph
 
-개념 지도 v6.0은 수능 독서 지문의 **내용적 구조**와 **서술적 구조**를 통합적으로 설계하기 위한 프레임워크입니다. v5.0이 개념 간 관계 구조에 초점을 맞추었다면, v6.0은 여기에 내러티브 흐름과 텐션을 결합하여 더욱 정교한 지문 설계를 가능하게 합니다.
+# FastAPI 앱 및 CORS
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://*.streamlit.app", "http://localhost:8501"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-### 필요성
+# 세션별 그래프/DB 관리
+session_graphs = {}
+DB_DIR = "DB/checkpointer"
+SESSION_EXPIRY_SECONDS = 3 * 60 * 60
+os.makedirs(DB_DIR, exist_ok=True)
 
-1. **평면적 지문 극복**: 단순히 개념들을 나열하는 평면적 서술에서 벗어나 입체적이고 유기적인 지문 설계 가능
-2. **변별력 강화**: 상위권 학생들을 변별할 수 있는 텐션 구조와 암시적 논리 관계 설계 
-3. **통합적 접근**: 지문의 "무엇을"(개념)과 "어떻게"(서술 방식)를 동시에 설계하는 체계 제공
-4. **문항 설계 연계**: 다양한 난이도와 유형의 문항을 효과적으로 설계할 수 있는 기초 제공
+def get_new_db_path(session_id):
+    ts = int(time.time())
+    return os.path.join(DB_DIR, f"{session_id}_{ts}.db")
 
-## 2. v5.0에서 v6.0으로의 주요 변경점
+def find_latest_db_path(session_id):
+    pattern = os.path.join(DB_DIR, f"{session_id}_*.db")
+    files = glob.glob(pattern)
+    if files:
+        files.sort(key=lambda p: int(p.split('_')[-1].split('.')[0]), reverse=True)
+        return files[0]
+    return get_new_db_path(session_id)
 
-| 구분 | v5.0 | v6.0 |
-|------|------|------|
-| **구조** | 단일 계층 구조 (개념 노드-엣지) | **이중 계층 구조** (문단 노드-엣지 + 개념 노드-엣지) |
-| **내러티브** | 미지원 | **내러티브 패턴, 텐션 곡선** 지원 |
-| **개념 엣지** | 엣지 타입-레이블 체계 | 기존 체계 + **명시적/암시적 구분, 난이도 분류** |
-| **시각화** | 개념 그래프 | 개념 그래프 + **문단 흐름도, 텐션 곡선** |
-| **문단 구조** | 미지원 | **문단 역할, 텐션 수치** 지원 |
-| **표준 형식** | JSON | JSON (확장형) |
+async def get_session_graph(session_id):
+    if session_id in session_graphs:
+        return session_graphs[session_id]
+    db_path = find_latest_db_path(session_id)
+    memory = await aiosqlite.connect(db_path)
+    saver = AsyncSqliteSaver(memory)
+    await saver.setup()
+    graph = create_compiled_graph(memory=saver)
+    session_graphs[session_id] = {"graph": graph, "memory": memory, "db_path": db_path}
+    return session_graphs[session_id]
 
-## 3. 이중 계층 구조
-
-v6.0의 핵심은 **이중 계층 구조**로, 지문을 거시적(문단 레벨)과 미시적(개념 레벨) 관점에서 동시에 설계할 수 있습니다.
-
+# 스트리밍 핸들러
+async def stream_agent_response(req):
+    session_data = await get_session_graph(req.session_id)
+    graph = session_data["graph"]
+    inputs = {"messages": [HumanMessage(content=req.prompt)]}
+    cfg = {"configurable": {"thread_id": req.session_id}, "recursion_limit": 100}
+    async for chunk in graph.astream(inputs, config=cfg, subgraphs=True, stream_mode="messages"):
+        # ToolMessage/AIMessage 구분하여 프론트엔드에 전송
+        yield json.dumps({...})
 ```
-[지문]
-  ├── [문단1] --- [문단2] --- [문단3] --- [문단4]  # 문단 노드-엣지 (거시적 구조)
-  │     │           │           │           │
-  │     ▼           ▼           ▼           ▼
-  │  [개념A]      [개념D]      [개념G]      [개념J]  
-  │     │           │           │           │
-  │  [개념B] --- [개념E] --- [개념H] --- [개념K]  # 개념 노드-엣지 (미시적 구조)
-  │     │           │           │           │
-  │  [개념C]      [개념F]      [개념I]      [개념L]
+
+### C. Docker 기반 배포 구조
+
+- **Dockerfile**: Python, requirements, DB 디렉토리, Supervisor 설정 포함
+- **docker-compose.yaml**: 포트, 볼륨, 환경변수, 재시작 정책 관리
+- **Supervisor**: FastAPI 서버 프로세스 자동 관리
+
+| 파일명              | 주요 역할/설정 요약                                  |
+|---------------------|------------------------------------------------------|
+| Dockerfile          | Python 3.10, requirements, DB, Supervisor, 포트 노출 |
+| docker-compose.yaml | 포트/볼륨/환경변수/재시작 정책                      |
+| supervisord.conf    | 멀티프로세스, 자동 재시작, 표준 로그                     |
+| requirements.txt    | FastAPI, LangGraph, ChromaDB, OpenAI 등 주요 의존성      |
+
+**Dockerfile 예시**
+```dockerfile
+FROM python:3.10-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential sqlite3 libsqlite3-dev supervisor \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir protobuf==3.20.3
+RUN mkdir -p DB/checkpointer DB/kice && chmod -R 777 DB
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY . .
+ENV PYTHONUNBUFFERED=1
+EXPOSE 8000
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 ```
 
-이 구조는 다음과 같은 이점을 제공합니다:
-- 문단 간 논리적 흐름과 개념 간 관계를 분리하여 설계
-- 문단 내 개념 밀도와 텐션을 통제하여 난이도 조절
-- 전체 지문의 내러티브 구조와 텐션 곡선 설계
+**docker-compose.yaml**
+```yaml
+services:
+  ksat-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./DB/kice:/app/DB/kice
+      - ./DB/checkpointer:/app/DB/checkpointer
+    env_file:
+      - .env
+    restart: always
+```
 
-## 4. 문단 노드 속성 및 구조
+**supervisord.conf**
+```
+[supervisord]
+nodaemon=true
+user=root
+logfile=/dev/null
+logfile_maxbytes=0
+logfile_backups=0
 
-문단 노드는 지문의 거시적 구조를 구성하는 기본 단위로, 다음과 같은 속성을 가집니다:
+[program:ksat-agent]
+command=python /app/agent_server.py
+directory=/app
+autostart=true
+autorestart=true
+startretries=5
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+```
 
-```json
-{
-  "id": "p1",                  // 문단 식별자
-  "order": 1,                  // 문단 순서
-  "role": "intro",             // 문단 역할
-  "tension_level": 2,          // 텐션 수치 (1-5)
-  "description": "개념 소개",   // 문단 내용 요약
-  "contains_nodes": ["n1", "n2", "n3"],  // 포함된 개념 노드 ID
-  "primary_concept": "n1"      // 핵심 개념 노드 ID
+**requirements.txt**
+```
+langchain-core
+langgraph
+fastapi
+uvicorn
+sse-starlette
+pydantic
+python-dotenv
+langchain-anthropic
+chromadb==1.0.8
+openai
+langchain-openai
+langchain-google-genai
+langchain-community
+gunicorn
+asyncio
+aiosqlite
+langgraph.checkpoint.sqlite
+google-genai
+```
+
+
+### D. Github Actions 기반 CI/CD
+
+- **자동 빌드/테스트/배포**: main 브랜치 push 시 워크플로우 실행
+- **GCP 인스턴스 SSH 접속 후 Docker 이미지 pull & 재시작**
+- **환경 변수 및 비밀키 Github Secrets로 관리**
+
+---
+
+## 🔟 Fine-tuning
+
+### A. 파인튜닝 필요성
+
+아무리 정교한 프롬프트를 적용해도, 본질적으로 쉽고 친절하게 설명하도록 학습된 기본 GPT 모델은 **수능 지문 특유의 촘촘한 정보 밀도**를 구현할 수 없었습니다. 수능 독서 지문은 제한된 공간 안에 압축적이고 학술적인 정보를 담아야 하는 독특한 문체적 특성을 가지고 있습니다.
+
+### B. 파인튜닝 과정
+
+1. **기출 데이터 수집**: 100개 평가원 기출 문항을 기반 데이터로 수집
+2. **Data Augmentation 적용**: LLM을 활용한 데이터 증강 기법으로 1000여개 데이터셋 구축
+3. **OpenAI 플랫폼 파인튜닝**: Fine-tuning API를 통해 GPT-4.1 기반 전용 모델 학습
+4. **최적 파라미터 탐색**: 수십 번의 실험을 통해 최적의 하이퍼파라미터 발견
+
+### C. 파인튜닝 결과
+
+![Fine-tuning 성능 향상 결과](image.png)
+
+- **문체 개선**: 친절한 설명형 → 압축적 학술형 문체로 전환
+- **정보 밀도 극대화**: 동일한 분량 내 2-3배 많은 개념과 정보 포함
+- **수능 특화**: 기출 문제와 유사한 논리 구조와 용어 사용 패턴 습득
+- **과적합 방지**: 데이터 증강으로 충분한 데이터 확보, 3 epoch까지 train/val loss 지속 감소
+- **전문가 평가**: 문체, 개념 밀도, 논리성, 용어 정확성 모든 영역에서 대폭 향상
+
+### D. 파인튜닝 전후 비교 예시
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
+.passage-font {
+    border: 0.5px solid black;
+    border-radius: 0px;
+    padding: 10px;
+    margin-bottom: 20px;
+    font-family: 'Nanum Myeongjo', serif !important;
+    font-size: 12px;
+    line-height: 1.7;
+    letter-spacing: -0.01em;
+    font-weight: 500;
 }
-```
-
-### 문단 역할 유형
-
-| 역할 | 설명 | 주요 기능 |
-|------|------|----------|
-| **intro** | 도입 | 주제 소개, 배경 설명, 문제 제기 |
-| **define** | 정의 | 핵심 개념 정의, 용어 설명 |
-| **explain** | 설명 | 원리 분석, 관계 설명, 메커니즘 해설 |
-| **contrast** | 대조 | 상반된 관점 비교, 차이점 분석 |
-| **exemplify** | 예시 | 구체적 사례 제시, 적용 예 소개 |
-| **extend** | 확장 | 개념 심화, 추가 논점 소개 |
-| **challenge** | 도전 | 한계 지적, 반론 제시, 문제 제기 |
-| **synthesize** | 종합 | 논점 통합, 결론 도출 |
-| **conclude** | 결론 | 요약, 의의 및 시사점 제시 |
-
-## 5. 문단 엣지 유형
-
-문단 엣지는 문단 간의 논리적 연결을 나타냅니다:
-
-```json
-{
-  "source_id": "p1",
-  "target_id": "p2",
-  "type": "builds_upon"
+.passage-font p {
+    text-indent: 1em;
+    margin-bottom: 0em;
 }
-```
+</style>
 
-### 문단 엣지 유형
+**동일한 시스템 프롬프트에 대한 출력 차이 비교**
 
-| 유형 | 설명 | 예시 연결 |
-|------|------|----------|
-| **builds_upon** | 앞 문단의 내용 발전/심화 | 정의 → 상세 설명 |
-| **contrasts_with** | 대조적 관점/현상 제시 | A이론 → B이론 |
-| **introduces_problem** | 문제 제기 | 현상 → 문제점 |
-| **provides_solution** | 해결책 제시 | 문제점 → 해결방안 |
-| **exemplifies** | 구체적 사례/적용 제시 | 이론 → 사례 |
-| **shifts_perspective** | 관점 전환 | 기술적 → 윤리적 |
-| **specifies_condition** | 조건/한계 명시 | 일반론 → 예외/조건 |
-| **concludes_from** | 앞 내용에서 결론 도출 | 논증 → 결론 |
+<div style="display: flex; gap: 24px;">
+  <div style="flex:1; max-width:50%;">
+    <h4>파인튜닝 이전</h4>
+    <blockquote>직관적이고 친절한 풀이형 설명, 동일한 분량에서 정보 밀도가 낮음</blockquote>
+    <div class="passage-font">
+      <p>우리는 일상생활 속에서 물건을 '가지고 있다'는 사실만으로 그 물건의 주인이라고 생각하기 쉽다. 그러나, 법적으로 '점유'와 '소유'는 구별된다. 점유란 물건에 대한 사실상의 지배 상태를 의미하며, 실제로 물건을 관리·통제하고 있는 상황을 말한다. 반면, 소유는 물건을 자유롭게 사용, 수익, 처분할 수 있는 권리를 의미한다. 예를 들어, 임차인은 임대차 계약을 통해 집을 점유하지만, 그 집의 소유자는 임대인이다. 이처럼 점유자와 소유자는 반드시 일치하지 않는다.</p>
+      <p>우리 민법은 오랜 기간 타인의 부동산을 점유한 자에게 일정한 조건을 갖추면 소유권을 취득할 수 있도록 점유취득시효 제도를 두고 있다. 이는 부동산 관계를 명확히 하여 법적 안정성을 도모하기 위한 것이다. 점유취득시효가 성립하려면 다음과 같은 요건이 필요하다. 첫째, 20년 동안 계속하여 점유해야 한다. 둘째, 소유자가 될 의사로, 즉 스스로의 권리로 점유(자주점유)해야 하며, 점유자는 자주점유한 것으로 추정된다. 셋째, 점유는 폭력이나 강박 등 없이 평온하게 이루어져야 하고, 넷째, 점유 사실이 외부에 드러나 은밀하지 않은, 공연한 점유이어야 한다.</p>
+    </div>
+  </div>
+  <div style="flex:1; max-width:50%;">
+    <h4>파인튜닝 이후</h4>
+    <blockquote>학술적이고 압축적인 수능형 설명, 동일한 분량에서 정보 밀도가 높음</blockquote>
+    <div class="passage-font">
+      <p>우리 민법은 점유취득시효 제도를 두고 있다. 점유란 물건에 대한 사실상의 지배 상태를 의미하고, 소유란 물건을 사용․수익․처분할 수 있는 권리를 가진 상태를 의미한다. 따라서 점유자와 소유자는 항상 일치하지 않는다. 예를 들어 임차인은 임차물에 대한 점유자이지만, 임차물의 소유자는 아니다. 점유취득시효는 타인의 부동산을 소유의 의사로 평온․공연하게 20년간 점유한 자에게 그 부동산의 소유권을 취득할 수 있도록 하는 제도이다.</p>
+      <p>점유취득시효가 인정되려면 시효 기간의 점유가 자주점유이어야 한다. 자주점유란 소유의 의사로 하는 점유를 말하는데, 점유자가 스스로 소유자를 자처하는 것만으로는 부족하고 점유 취득의 원인으로 볼 때 소유자와 동일하게 지배․처리하려는 의사를 가지고 있어야 한다. 점유자는 자주점유로 추정되므로 타인이 빌려준 물건을 점유한 경우와 같이 점유 취득의 원인으로 볼 때 소유의 의사가 없다고 인정되는 특별한 사정이 있는 경우에만 점유자의 자주점유가 부정된다. 또한 점유취득시효가 인정되려면 시효 기간의 점유가 폭력이나 강박에 의한 것이 아니어야 하고 은밀한 것이어서는 안 된다.</p>
+    </div>
+  </div>
+</div>
 
-## 6. 개념 노드 및 엣지 유형
-
-개념 노드와 엣지는 v5.0의 체계를 유지하며, 다음과 같은 속성을 가집니다:
-
-```json
-// 개념 노드
-{
-  "id": "n1",
-  "label": "개념명",
-  "type": "concept",
-  "tier": "core",           // core/support
-  "paragraph_id": "p1",     // 소속 문단 ID (v6.0 추가)
-  "discourse_role": "claim" // 담론 역할
-}
-
-// 개념 엣지
-{
-  "source_id": "n1",
-  "target_id": "n2",
-  "type": "Causality",
-  "label": "causes",
-  "explicitness": "explicit",  // explicit/implicit (v6.0 추가)
-  "complexity": "medium",      // low/medium/high (v6.0 추가)
-  "supporting_sentence": "..."
-}
-```
-
-## 7. 암시적/명시적 엣지 구분
-
-v6.0에서는 개념 엣지를 **명시적(explicit)**과 **암시적(implicit)**으로 구분합니다:
-
-- **명시적 엣지**: 텍스트에 직접 언급된 관계 (예: "A는 B를 유발한다")
-- **암시적 엣지**: 텍스트에 직접 언급되지 않았으나 추론 가능한 관계
-
-```json
-// 명시적 엣지
-{
-  "source_id": "n1",
-  "target_id": "n2",
-  "type": "Causality",
-  "label": "causes",
-  "explicitness": "explicit",
-  "supporting_sentence": "A는 B를 유발한다."
-}
-
-// 암시적 엣지
-{
-  "source_id": "n3",
-  "target_id": "n4",
-  "type": "Evaluation",
-  "label": "views_as",
-  "explicitness": "implicit",
-  "inference_basis": ["p2-s3", "p3-s1"]  // 추론의 근거가 되는 문장
-}
-```
-
-### 암시적 엣지의 중요성
-
-암시적 엣지는 상위권 학생들을 변별하는 핵심 요소로, 다음과 같은 기능을 합니다:
-
-1. **추론 역량 측정**: 명시되지 않은 논리적 연결을 파악하는 능력 요구
-2. **문항 소재 제공**: 추론형, 적용형 문항의 핵심 소재로 활용
-3. **실제 학술 텍스트 반영**: 실제 전문적 텍스트의 논리적 특성 반영
-
-## 8. 텐션 수치 설계 및 영향
-
-텐션 수치는 문단 단위의 정보 밀도와 추론 부담 수준을 1-5 척도로 정량화한 값입니다:
-
-### 텐션 수치별 특성
-
-| 텐션 수치 | 문단 특성 | 개념 노드/엣지 영향 |
-|---------|---------|-------------------|
-| **1** (낮음) | • 기본 개념 소개<br>• 배경 설명<br>• 친절한 서술 | • 소수의 핵심 노드(2-3개)<br>• 단순한 엣지 유형<br>• 암시적 엣지 없음 |
-| **2** (기본) | • 개념 확장<br>• 맥락 제공<br>• 구체적 예시 | • 중간 수준 노드(3-5개)<br>• 일반적 엣지 유형<br>• 암시적 엣지 20% 미만 |
-| **3** (중간) | • 개념 응용<br>• 일부 추론 요구<br>• 복합 개념 도입 | • 다양한 노드(5-7개)<br>• 다양한 엣지 유형<br>• 암시적 엣지 30% |
-| **4** (높음) | • 다중 관점 제시<br>• 대조적 내용<br>• 추상화 수준 높음 | • 복잡한 노드 구조(7-9개)<br>• 고급 엣지 유형<br>• 암시적 엣지 50% |
-| **5** (매우 높음) | • 통합적 재구성<br>• 심층적 함의<br>• 높은 추론 요구 | • 긴밀히 연결된 다수 노드(8-10개+)<br>• 복합 엣지 패턴<br>• 암시적 엣지 70% |
-
-### 텐션 곡선 패턴
-
-전체 지문의 텐션 분포를 설계하는 패턴:
-
-| 패턴 | 텐션 분포 | 효과 |
-|------|---------|------|
-| **점진적 상승** | [1→2→3→4→5] | 점층적 이해 요구, 고난도 결론 |
-| **클라이맥스형** | [2→3→5→4→2] | 핵심 난제 후 해소 |
-| **교차형** | [2→4→2→5→3] | 긴장-이완 교차로 독해 피로 방지 |
-| **단계형** | [2→2→4→4→5] | 난이도 단계 뚜렷, 평탄구간 제공 |
-| **심층부 집중** | [1→2→5→5→3] | 중심부에 핵심 정보 밀집 |
-
-## 9. 개념 엣지 난이도 분류
-
-v6.0에서는 개념 엣지를 난이도에 따라 분류합니다:
-
-### 난이도별 엣지 유형
-
-| 난이도 | 엣지 유형 | 특징 |
-|-------|---------|------|
-| **초급** | • Definition<br>• Classification<br>• Property<br>• Composition<br>• Example | • 직관적 이해 가능<br>• 단순한 논리 관계<br>• 명시적 표현이 대부분 |
-| **중급** | • Causality<br>• Purpose<br>• Comparison<br>• Temporal<br>• Spatial<br>• Reference<br>• Conditional | • 2단계 추론 필요<br>• 영역 특수적 지식 활용<br>• 부분적 암시적 표현 |
-| **고급** | • Argumentation<br>• CounterCausality<br>• Exception<br>• Modality<br>• Methodology<br>• Hierarchy<br>• Evaluation<br>• QuantComparison | • 다단계 추론 요구<br>• 전문적 사고 체계 필요<br>• 대부분 암시적 표현 |
-
-## 10. 내러티브 패턴 템플릿
-
-지문 전체의 내러티브 구조를 설계하기 위한 템플릿:
-
-### 내러티브 패턴 유형
-
-| 패턴 | 문단 구성 | 적합한 주제 |
-|------|---------|-------------|
-| **문제-해결** | 현상 소개→문제 제기→해결 과정→결론/의의 | 과학 기술, 사회 문제 |
-| **대조-종합** | 개념 도입→관점A→관점B→비교/대조→종합/평가 | 철학, 인문학적 논쟁 |
-| **시간적 전개** | 배경→발전 과정→현재→미래 전망 | 역사, 기술 발전사 |
-| **논증 구조화** | 주장→근거→반론→재반박→결론 | 윤리, 법학, 사회 논쟁 |
-| **개념 심화** | 기본 정의→세부 요소→작동 원리→한계/예외→응용 | 자연과학, 공학 |
-
-## 11. JSON 스키마 예시
-
-전체 지문의 개념 지도 v6.0 표현 예시:
-
-```json
-{
-  "$schema": "https://kice-graph.org/schema/v6.0",
-  "graph_id": "2026_06_section_8_11",
-  "document_source": {
-    "title": "인공지능의 윤리적 문제",
-    "domain": "기술",
-    "subdomain": "인공지능"
-  },
-  "narrative_pattern": "대조-종합",
-  "tension_curve": [1, 3, 4, 5, 3],
-  
-  "paragraphs": [
-    {
-      "id": "p1",
-      "order": 1,
-      "role": "intro",
-      "tension_level": 1,
-      "description": "인공지능 윤리의 필요성 소개",
-      "contains_nodes": ["n1", "n2", "n3"],
-      "primary_concept": "n1"
-    },
-    {
-      "id": "p2",
-      "order": 2,
-      "role": "explain",
-      "tension_level": 3,
-      "description": "결과주의적 관점의 AI 윤리",
-      "contains_nodes": ["n4", "n5", "n6", "n7", "n8"],
-      "primary_concept": "n4"
-    },
-    // 추가 문단...
-  ],
-  
-  "paragraph_edges": [
-    {
-      "source_id": "p1",
-      "target_id": "p2",
-      "type": "builds_upon"
-    },
-    {
-      "source_id": "p2",
-      "target_id": "p3",
-      "type": "contrasts_with"
-    },
-    // 추가 문단 엣지...
-  ],
-  
-  "nodes": [
-    {
-      "id": "n1",
-      "label": "인공지능",
-      "type": "concept",
-      "tier": "core",
-      "paragraph_id": "p1",
-      "discourse_role": "subject"
-    },
-    {
-      "id": "n2",
-      "label": "윤리적 문제",
-      "type": "concept",
-      "tier": "core",
-      "paragraph_id": "p1",
-      "discourse_role": "claim"
-    },
-    // 추가 노드...
-  ],
-  
-  "edges": [
-    {
-      "source_id": "n1",
-      "target_id": "n2",
-      "type": "Property",
-      "label": "has_attribute",
-      "explicitness": "explicit",
-      "complexity": "low",
-      "supporting_sentence": "인공지능 기술의 발전은 새로운 윤리적 문제를 제기한다."
-    },
-    {
-      "source_id": "n4",
-      "target_id": "n6",
-      "type": "Evaluation",
-      "label": "views_as",
-      "explicitness": "implicit",
-      "complexity": "high",
-      "inference_basis": ["p2-s3", "p2-s4"]
-    },
-    // 추가 엣지...
-  ]
-}
-```
-
-## 12. 머메이드 시각화 표준
-
-v6.0 개념 지도는 다음 두 가지 다이어그램으로 시각화합니다:
-
-### 1. 문단 흐름도 (거시적 구조)
-
-```mermaid
-flowchart LR
-    subgraph "텐션곡선"
-        t1["1"] --> t2["3"] --> t3["4"] --> t4["5"] --> t5["3"]
-    end
-    
-    p1["p1: 도입(1)"] --builds_upon--> p2["p2: 설명(3)"]
-    p2 --contrasts_with--> p3["p3: 대조(4)"]
-    p3 --synthesizes--> p4["p4: 종합(5)"]
-    p4 --concludes_from--> p5["p5: 결론(3)"]
-```
-
-### 2. 개념 구조도 (미시적 구조)
-
-```mermaid
-flowchart TB
-    %% 노드 정의
-    n1["인공지능"] 
-    n2["윤리적 문제"]
-    n4["결과주의"]
-    n6["행위의 결과"]
-    
-    %% 명시적 엣지 (실선)
-    n1 -->|"has_attribute"| n2
-    
-    %% 암시적 엣지 (점선)
-    n4 -.->|"views_as"| n6
-    
-    %% 스타일링
-    classDef low fill:#90EE90,stroke:#000,stroke-width:1px;
-    classDef medium fill:#ADD8E6,stroke:#000,stroke-width:1px;
-    classDef high fill:#FFB6C1,stroke:#000,stroke-width:1px;
-    
-    class n1,n2 low;
-    class n4 medium;
-    class n6 high;
-```
-
-## 13. 품질 체크리스트
-
-개념 지도 v6.0이 완성되면 다음 체크리스트로 품질을 검증합니다:
-
-1. **완전성 검증**
-   - [ ] 모든 주요 개념이 노드로 포함됨
-   - [ ] 문단별 텐션 수치가 모두 정의됨
-   - [ ] 암시적 엣지가 충분한 근거를 가짐
-
-2. **일관성 검증**
-   - [ ] 텐션 수치와 노드/엣지 분포가 일치함
-   - [ ] 내러티브 패턴이 문단 역할과 일관됨
-   - [ ] 개념 간 계층 구조가 논리적으로 일관됨
-
-3. **변별력 검증**
-   - [ ] 최소 30% 이상의 암시적 엣지 포함
-   - [ ] 텐션 수치 4-5 문단이 1개 이상 포함
-   - [ ] 고급 난이도 엣지가 25% 이상 포함
-
-4. **출제 가능성 검증**
-   - [ ] 세부 정보 파악, 추론, 적용 유형 문항 설계 가능
-   - [ ] 개념 간 비교/대조를 요구하는 문항 설계 가능
-   - [ ] 최소 1개 이상의 고난도 문항 설계 가능
-
-## 부록: 엣지 타입 및 레이블 참조표
-
-개념 엣지는 v5.0의 체계를 그대로 유지합니다:
-
-| Type | Label | 설명 | 난이도 |
-|------|-------|------|-------|
-| **Hierarchy** | is_parent_of, is_child_of | 상하위 관계 | 고급 |
-| **Classification** | belongs_to | 분류 관계 | 초급 |
-| **Definition** | defines | 정의 관계 | 초급 |
-| **Composition** | has_part | 부분-전체 관계 | 초급 |
-| **Property** | has_attribute | 속성 관계 | 초급 |
-| **Comparison** | is_similar_to, differs_from | 유사/대조 관계 | 중급 |
-| **QuantComparison** | is_greater_than, is_less_than, is_equal_to, delta_is_positive, delta_is_negative | 수량 비교 | 고급 |
-| **Causality** | causes, influences | 인과 관계 | 중급 |
-| **CounterCausality** | mitigates, exacerbates | 역인과 관계 | 고급 |
-| **Conditionality** | requires, depends_on | 조건 관계 | 중급 |
-| **Exception** | has_exception, has_scope_limit | 예외/한계 | 고급 |
-| **Temporal** | occurs_at, before, after | 시간 관계 | 중급 |
-| **Spatial** | is_located_at | 공간 관계 | 중급 |
-| **Purpose** | has_purpose, functions_as, uses_means | 목적 관계 | 중급 |
-| **Example** | is_example_of | 예시 관계 | 초급 |
-| **Reference** | refers_to, is_source_of | 참조 관계 | 중급 |
-| **Evaluation** | views_as, has_stance | 평가 관계 | 고급 |
-| **Argumentation** | supports, contradicts, rebuttal_of, argument_unit | 논증 관계 | 고급 |
-| **Methodology** | uses_framework, is_derived_from | 방법론 관계 | 고급 |
-| **Modality** | is_hypothetical, has_probability | 양태 관계 | 고급 |
