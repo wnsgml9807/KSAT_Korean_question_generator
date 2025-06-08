@@ -21,7 +21,7 @@ class Config:
         self.page_icon = "📚"
         self.layout = "wide"
         self.sidebar_state = "expanded"
-        self.version = "0.7.0"
+        self.version = "0.7.3"
         self.author = "권준희"
         self.where = "연세대학교 교육학과"
         self.contact = "wnsgml9807@naver.com"
@@ -78,11 +78,16 @@ class SessionManager:
         if "is_first_stream_for_session" not in st.session_state:
             st.session_state.is_first_stream_for_session = True
 
+        # 최신 아티팩트 저장을 위한 세션 변수 추가
+        if "latest_passage" not in st.session_state:
+            st.session_state.latest_passage = None
+        if "latest_question" not in st.session_state:
+            st.session_state.latest_question = None
+
     @staticmethod
     def reset_session(logger):
         """Reset the session state, preserving only viewport_height"""
         current_session_id = st.session_state.get("session_id")
-        current_viewport_height = st.session_state.get("viewport_height")
         logger.info(f"세션 리셋 요청 (ID: {current_session_id}).")
 
         # 세션 변수 정리 (viewport_height만 제외)
@@ -100,6 +105,8 @@ class SessionManager:
         st.session_state.is_streaming = False
         st.session_state.last_stream_ending_agent = None
         st.session_state.is_first_stream_for_session = True
+        st.session_state.latest_passage = None
+        st.session_state.latest_question = None
         
         # 페이지 새로고침 수행
         st.toast("대화가 초기화되었습니다.", icon="🔄")
@@ -156,7 +163,12 @@ class UI:
             letter-spacing: -0.01em;
             font-weight: 500;
             margin-bottom: 1.5em;
+            svg {
+                width: 100%;
+                height: 100%;
         }
+        }
+        </style>
         """, unsafe_allow_html=True)
     
 
@@ -397,8 +409,9 @@ class MessageRenderer:
         
         
         if agent == "passage_editor":
-            with self.passage_placeholder:
-                st.markdown(item["content"], unsafe_allow_html=True)
+            # 세션 상태에만 저장하고 렌더링하지 않음
+            st.session_state.latest_passage = item["content"]
+        # question_editor 처리 부분 제거
     
     def _render_tool_item(self, item, placeholders, idx, viewport_height):
         """Render tool execution results according to final desired state."""
@@ -445,9 +458,8 @@ class MessageRenderer:
             with placeholders[idx].status("문제 작성 완료", state="complete", expanded=False):
                 pass
             
-            # question artifact에 바로 출력
-            with self.question_placeholder:
-                components.html(css + tool_content, height=viewport_height-10, scrolling=True)
+            # 세션 상태에만 저장하고 렌더링하지 않음 (show_main_app에서 최종 렌더링)
+            st.session_state.latest_question = css + tool_content
         # Mermaid 도구: 확장된 완료 상태로 표시
         elif tool_name == "mermaid_tool": # 내부 로직은 원래 이름 사용 유지
             with placeholders[idx].status(f"📊 개념 지도", state="complete", expanded=True):
@@ -720,11 +732,12 @@ class BackendClient:
                             with placeholders[current_idx].status("문제 작성 완료", state="complete", expanded=False):
                                 pass
                             
-                            # question artifact에 바로 출력
+                            # 세션 상태 업데이트와 동시에 실시간 렌더링
+                            st.session_state.latest_question = css + tool_content
                             with self.question_placeholder:
                                 components.html(css + tool_content, height=viewport_height-10, scrolling=True)
+                                self.logger.info(f'User [anonymous]: 문항 작성 완료 \n{tool_content}')
                             current_idx += 1
-                            
                         elif tool_name == "google_search_node":
                             with placeholders[current_idx].status(f"🔍 Google 검색", state="complete", expanded=False):
                                 st.markdown(tool_content, unsafe_allow_html=True)
@@ -817,7 +830,8 @@ class BackendClient:
             except Exception as e:
                 pass
             
-            # Update the passage content - st.markdown 사용 (SVG 호환성을 위해)
+            # 세션 상태 업데이트와 동시에 실시간 렌더링
+            st.session_state.latest_passage = text
             with self.passage_placeholder:
                 st.markdown(text, unsafe_allow_html=True)
                 
@@ -912,19 +926,31 @@ def show_main_app(config, logger):
     if len(st.session_state.messages) == 0:
         with passage_placeholder.container():
             st.title("Welcome to KSAT Agent!")
-            st.subheader(":thinking_face: 하단 입력창에 원하는 주제를 입력해 보세요!")
+            st.subheader(":thinking_face: '원하는 분야'를 먼저 입력해 보세요!")
             st.markdown("🎯*예시 1: 논리학 이론을 다룬 지문을 작성해 줘*")
             st.markdown("🎯*예시 2: 생명과학 분야의 지문을 작성해 줘*")
             st.markdown(" ")
-            st.markdown("ver : 0.7.0 (06.01)")
+            st.markdown("ver : 0.7.3 (06.10)")
             st.code("""
             - 새로운 Fine-tuned 모델 탑재로 인한 지문 품질 향상
-            - 절차 간소화 및 사용자 상호작용 강화
+            - 문제 품질 향상 및 절차 간소화
+            - 사용자 상호작용 강화
             """)
     
     # --- 기존 메시지 표시 ---
     for message in st.session_state.messages:
         message_renderer.render_message(message, viewport_height)
+
+    # --- 최신 아티팩트 표시 ---
+    # 최신 지문 표시
+    if st.session_state.get("latest_passage"):
+        with passage_placeholder:
+            st.markdown(st.session_state.latest_passage, unsafe_allow_html=True)
+    
+    # 최신 문항 표시
+    if st.session_state.get("latest_question"):
+        with question_placeholder:
+            components.html(st.session_state.latest_question, height=viewport_height-10, scrolling=True)
 
     # --- 채팅 입력창 ---
     prompt = st.chat_input(
@@ -976,8 +1002,8 @@ def main():
     # Define pages using st.Page
     # Use a lambda to pass config and logger to the main app function
     pages = [
-        Page(lambda: show_main_app(config, logger), title="Agent", icon="🤖", default=True),
-        Page(config.about_page_path, title="About", icon="📄")
+        Page(config.about_page_path, title="프로젝트 소개", icon="📄", default=True),
+        Page(lambda: show_main_app(config, logger), title="출제 AI 사용하기", icon="🤖")
     ]
     # --- End Page Definition ---
 

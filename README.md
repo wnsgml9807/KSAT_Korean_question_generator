@@ -4,7 +4,7 @@ _Multi-Agent 기반 수능 국어 독서 영역 출제 자동화 시스템_
 ```
 제작자: 권준희
 소속: 연세대학교 교육학과
-버전: 0.7.1 (2024.06.03)
+버전: 0.7.3 (2025.06.10)
 - Fine-tuned 모델 업그레이드로 지문 품질 대폭 향상
 - 문항 구성 다양화, 오답 선지 고도화
 - 출제 절차 간소화 및 사용자 상호작용 강화
@@ -21,18 +21,15 @@ _Multi-Agent 기반 수능 국어 독서 영역 출제 자동화 시스템_
 </div>
 <br>
 
-
 ---
 
 ## 1️⃣ 프로젝트 개요
 
-KSAT Agent는 수능 국어 모의고사 출제 업무를 AI로 자동화하는 시스템입니다. 
-더 많은 학생들이 적은 비용으로 양질의 학습 콘텐츠를 누릴 수 있도록, AI 기반의 출제 시스템 개발을 시도하였습니다. 
-대성학원, 메가스터디 등 대형 학원에서 3년간 국어 모의고사 출제자로 활동한 경험과 노하우를 시스템에 녹여내었으며, 이를 통해 교육 격차 해소에도 기여하고자 합니다.
+KSAT Agent는 수능 국어 독서 영역 출제를 자동화하는 Multi-Agent 시스템입니다. 대성학원, 메가스터디 등 대형 학원에서 3년간 국어 모의고사 출제자로 활동한 경험과 노하우를 AI 시스템에 구현했습니다. 교육 격차 해소를 목적으로, 기존 출제 프로세스의 시간과 비용을 99% 단축하면서도 수능 기출 수준의 품질을 유지합니다.
 
----
+![KSAT Agent 최종 화면](./docs/preview.png)
 
-## 2️⃣ 프로젝트 성과
+### 프로젝트 효과
 
 | 항목 (지문 당) | 기존  | KSAT Agent 사용 시 |
 |------|---------|--------------------|
@@ -40,13 +37,56 @@ KSAT Agent는 수능 국어 모의고사 출제 업무를 AI로 자동화하는 
 | **비용** | 100~200만 원 | **200~500 원** |
 | **의사소통** | 서면 피드백 반복 | 실시간 AI 대화 |
 
-- 기존 출제 프로세스 대비 비용과 출제 시간을 획기적으로 단축하면서도, 외주 출제자에 의존하던 비효율적인 구조를 크게 개선하였습니다.
-- 퀄리티를 유지하면서도 누구나 쉽게 고품질 모의고사 콘텐츠를 제작할 수 있습니다.
-- **강남대성수능연구소와 협업 논의가 진행 중입니다.**
+- 기존 출제 프로세스 대비 비용과 출제 시간을 99% 단축
+- 외주 출제자에 의존하던 비효율적인 구조를 개선
+- 누구나 쉽게 고품질 모의고사 콘텐츠를 제작 가능
+- **강남대성수능연구소와 협업 논의 진행 중**
 
 ---
 
-## 3️⃣ 결과물 예시
+## 2️⃣ 사용자 경험
+
+KSAT Agent는 6단계의 체계적인 워크플로우를 통해 수능 국어 독서 지문과 문항을 자동으로 생성합니다.
+
+### 1. 주제 및 분야 입력
+
+사용자는 원하는 출제 분야나 구체적인 주제를 자연어로 입력합니다. Streamlit 기반의 대화형 웹 인터페이스에서 직관적으로 요청을 전달할 수 있습니다.
+
+![주제 및 분야 입력](./docs/step_1.png)
+
+### 2. 기출 데이터베이스 기반 유사 주제 탐색
+
+입력된 주제와 가장 유사한 기출 지문을 ChromaDB 벡터 임베딩을 활용해 빠르게 검색합니다. 이를 통해 출제 의도를 명확히 파악하고, 기존 기출의 맥락을 참고할 수 있습니다.
+
+![기출 DB 조회](./docs/step_2.png)
+
+### 3. 웹 기반 자료 리서치
+
+최신 정보나 특수 주제에 대해 웹 검색 도구를 활용해 추가 자료를 수집합니다. 이를 통해 최신 트렌드나 심화된 배경지식까지 반영할 수 있습니다.
+
+![자료 리서치](./docs/step_3.png)
+
+### 4. 개요 설계 및 지문 작성
+
+AI 에이전트가 입력된 주제와 참고 자료를 바탕으로 지문 개요를 설계하고, 파인튜닝된 모델을 통해 실제 수능 스타일의 독서 지문을 작성합니다. 이 과정은 Passage Editor가 전담합니다.
+
+![개요 및 지문 작성](./docs/step_4.png)
+
+### 5. 문제 출제 설계 및 준비
+
+작성된 지문을 바탕으로, Question Editor 에이전트가 기출 DB와 참고 자료를 추가로 탐색하여 문항 출제에 필요한 정보를 정리하고, 출제 방향을 설계합니다.
+
+![문제 출제 준비](./docs/step_5.png)
+
+### 6. 문항 및 해설 자동 생성
+
+최종적으로 AI가 수능 독서형 문항과 해설을 자동으로 생성하여, 사용자는 완성된 지문과 문제, 해설을 한 번에 받아볼 수 있습니다.
+
+![문제 및 해설 출력](./docs/step_6.png)
+
+---
+
+## 3️⃣ 결과물 비교
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
@@ -191,798 +231,11 @@ KSAT Agent는 수능 국어 모의고사 출제 업무를 AI로 자동화하는 
 
 ---
 
-## 4️⃣ 프로젝트 아키텍처
-
-### A. 프로젝트 폴더 구조
-
-```
-KSAT Agent/
-├── backend/                    # 백엔드 서버
-│   ├── agent_server.py        # FastAPI 메인 서버
-│   ├── graph_factory.py       # LangGraph 워크플로우 정의
-│   ├── tools.py               # AI 에이전트 도구 (RAG, 검색, 핸드오프)
-│   ├── agents_prompt/         # 에이전트별 시스템 프롬프트
-│   ├── DB/                    # 데이터베이스
-│   │   ├── checkpointer/      # LangGraph 세션 체크포인트
-│   │   ├── kice/              # ChromaDB 기출 문제 벡터 저장소
-│   │   └── kice_summary/      # 기출 문제 요약 데이터
-│   ├── Dockerfile             # Docker 컨테이너 설정
-│   ├── docker-compose.yaml    # Docker Compose 설정
-│   ├── requirements.txt       # Python 의존성
-│   └── supervisord.conf       # 프로세스 관리 설정
-└── frontend_academy/           # 프론트엔드 (Streamlit)
-    ├── app_main.py            # Streamlit 메인 앱
-    ├── pages/                 # 페이지 구성
-    │   ├── about.py           # 프로젝트 소개 페이지
-    │   └── about.txt          # 소개 텍스트
-    └── utils/                 # 유틸리티 함수
-                 └── backend_client.py  # 백엔드 API 클라이언트
-```
-### B. 시스템 아키텍처
-
-KSAT Agent의 시스템 구조도입니다.
-
-- **User Layer**: 사용자 브라우저 인터페이스
-- **Presentation Layer**: Streamlit 기반 웹 UI, 사용자 상호작용 처리
-- **Application Layer**: FastAPI 서버, LangGraph 엔진, AI 에이전트들, 커스텀 도구
-- **Data Layer**: ChromaDB 벡터 저장소(RAG), SQLite 세션 체크포인트
-- **Infrastructure Layer**: Docker 컨테이너, Docker Compose, Supervisor 프로세스 관리
-
-```mermaid
-graph TD
-    %% User Layer
-    subgraph USER_LAYER ["User Layer"]
-        direction LR
-        USER[👤 User / Client Browser]
-    end
-
-    %% Presentation Layer (Frontend)
-    subgraph FRONTEND_LAYER ["Presentation Layer (Frontend)"]
-        direction LR
-        STREAMLIT_UI["Streamlit Web UI"]
-    end
-
-    %% Application Layer (Backend)
-    subgraph BACKEND_LAYER ["Application Layer (Backend)"]
-        direction LR
-        subgraph FASTAPI_SERVER ["FastAPI Server"]
-            direction TB
-            API_GW["API Gateway (REST/SSE Endpoints)"]
-            LANGGRAPH_ENGINE["LangGraph Engine"]
-        end
-        
-        subgraph AGENTS ["AI Agents"]
-            direction TB
-            SUPERVISOR_AGENT["Supervisor (GPT-4.1)"]
-            PASSAGE_AGENT["Passage Editor (Fine-tuned LLM)"]
-            QUESTION_AGENT["Question Editor (LLM)"]
-        end
-
-        subgraph BACKEND_TOOLS ["Backend Tools"]
-            direction TB
-            CUSTOM_TOOLS["Custom Tools (RAG, Mermaid, etc.)"]
-            EXTERNAL_APIS["External APIs (Google Search, LLMs)"]
-        end
-    end
-
-    %% Data Layer
-    subgraph DATA_LAYER ["Data Layer"]
-        direction LR
-        CHROMA_DB["ChromaDB (Vector Store - RAG)"]
-        SQLITE_DB["SQLite (Session Checkpoints)"]
-    end
-
-    %% Infrastructure Layer
-    subgraph INFRA_LAYER ["Infrastructure Layer"]
-        direction LR
-        DOCKER["Docker Container"]
-        COMPOSE["Docker Compose"]
-        SUPERVISOR_INFRA["Supervisor (Process Manager)"]
-    end
-
-    %% Connections
-    USER --> STREAMLIT_UI
-    STREAMLIT_UI -- "HTTP/WebSocket (SSE)" --> API_GW
-    
-    API_GW --> LANGGRAPH_ENGINE
-    
-    LANGGRAPH_ENGINE -- "Workflow Orchestration" --> AGENTS
-    AGENTS -- "Tool Invocation" --> CUSTOM_TOOLS
-    AGENTS -- "API Calls" --> EXTERNAL_APIS
-    
-    CUSTOM_TOOLS -- "Data Retrieval/Storage" --> CHROMA_DB
-    CUSTOM_TOOLS -- "Data Retrieval/Storage" --> SQLITE_DB
-    LANGGRAPH_ENGINE -- "State Persistence" --> SQLITE_DB
-    
-    EXTERNAL_APIS -- "LLM API Providers, Google API" --> INTERNET[🌐 Internet]
-
-    %% Deployment
-    FASTAPI_SERVER -.-> DOCKER
-    DOCKER -.-> COMPOSE
-    COMPOSE -.-> SUPERVISOR_INFRA
-
-    %% Styling (Optional - for better readability if supported)
-    classDef user fill:#f9f,stroke:#333,stroke-width:2px;
-    classDef frontend fill:#9cf,stroke:#333,stroke-width:2px;
-    classDef backend fill:#lightgrey,stroke:#333,stroke-width:2px;
-    classDef data fill:#9f9,stroke:#333,stroke-width:2px;
-    classDef infra fill:#fcf,stroke:#333,stroke-width:2px;
-    classDef external fill:#ff9,stroke:#333,stroke-width:2px;
-
-    class USER_LAYER,USER frontend;
-    class FRONTEND_LAYER,STREAMLIT_UI frontend;
-    class BACKEND_LAYER,FASTAPI_SERVER,API_GW,LANGGRAPH_ENGINE,AGENTS,SUPERVISOR_AGENT,PASSAGE_AGENT,QUESTION_AGENT,BACKEND_TOOLS,CUSTOM_TOOLS,EXTERNAL_APIS backend;
-    class DATA_LAYER,CHROMA_DB,SQLITE_DB data;
-    class INFRA_LAYER,DOCKER,COMPOSE,SUPERVISOR_INFRA infra;
-    class INTERNET external;
-```
-
----
-
-## 5️⃣ 작업 워크플로우 설명
-
-```mermaid
-sequenceDiagram
-    participant U as 👤 사용자
-    participant S as 🎯 Supervisor
-    participant PE as ✍️ Passage Editor
-    participant QE as ❓ Question Editor
-
-    U->>S: 주제/요청 입력
-    S->>PE: 지문 생성 지시 (개요/컨셉 전달)
-    PE-->>S: 생성된 지문 전달
-    S->>QE: 문항 출제 지시 (지문 전달)
-    QE-->>S: 출제된 문항/해설 전달
-    S->>U: 최종 결과물 (지문+문항) 제시
-    U->>S: (선택) 피드백/수정 요청
-    S->>PE: (필요시) 지문 수정 지시
-    PE-->>S: (필요시) 수정된 지문 전달
-    S->>QE: (필요시) 문항 수정 지시
-    QE-->>S: (필요시) 수정된 문항 전달
-    S->>U: (필요시) 수정된 결과물 제시
-```
-
-### 1단계: 사용자 입력 및 서버 수신
-
-사용자가 Streamlit UI에서 주제나 요청을 입력하면, 프론트엔드에서 세션ID와 함께 백엔드 FastAPI 서버의 `/chat/stream` 엔드포인트로 전송됩니다. 서버는 세션별 LangGraph 인스턴스를 생성/관리합니다.
-
-```python
-# 프론트엔드: 채팅 입력 처리
-prompt = st.chat_input("ex) 논리학 이론을 다룬 지문을 작성해 줘")
-if prompt:
-    response = backend_client.send_message(prompt, st.session_state.session_id)
-
-# 백엔드: 세션별 그래프 관리
-async def get_session_graph(session_id):
-    if session_id in session_graphs:
-        return session_graphs[session_id]
-    db_path = find_latest_db_path(session_id)
-    memory = await aiosqlite.connect(db_path)
-    saver = AsyncSqliteSaver(memory)
-    await saver.setup()
-    graph = create_compiled_graph(memory=saver)
-    session_graphs[session_id] = {"graph": graph, "memory": memory, "db_path": db_path}
-    return session_graphs[session_id]
-```
-
-### 2단계: LangGraph 워크플로우 시작 및 Supervisor 분석
-
-입력된 메시지가 `MultiAgentState`로 변환되어 LangGraph의 `START` 노드에서 `supervisor` 노드로 전달됩니다. Supervisor는 사용자 요청을 분석하고, 지문 생성이 필요한지 문항 생성이 필요한지 판단합니다. 필요시 RAG 검색이나 웹 검색 도구를 먼저 호출합니다.
-
-```python
-# 그래프 실행 시작
-inputs = {"messages": [HumanMessage(content=req.prompt)]}
-cfg = {"configurable": {"thread_id": req.session_id}, "recursion_limit": 100}
-async for chunk in graph.astream(inputs, config=cfg, subgraphs=True, stream_mode="messages"):
-
-# supervisor_agent (create_react_agent 기반)
-# - 모델: Model_gemini_2_5_pro
-# - 도구: supervisor_tools (call_passage_editor, call_question_editor, retrieve_data 등)
-# - 프롬프트: supervisor_system_prompt
-```
-
-### 3단계: Passage Editor 호출 및 지문 생성
-
-Supervisor가 지문 생성/수정이 필요하다고 판단하면 `call_passage_editor` 도구를 호출합니다. Passage Editor는 Fine-tuned 모델(Model_ksat_v5_0601)을 사용하여 수능 국어 독서 지문을 생성합니다. 필요시 기출 DB 검색을 수행합니다.
-
-```python
-@tool
-async def call_passage_editor(summary: Optional[str], request: Optional[str], ...):
-    """passage_editor 에이전트를 호출하는 도구입니다."""
-    # LangGraph Command로 에이전트 간 제어권 이양
-    return Command(
-        graph=Command.PARENT,  # 상위 그래프 수준에서 실행
-        goto=Send("passage_editor", {  # passage_editor 노드로 이동
-            "summary": summary, 
-            "request": request, 
-            "passage": pre_passage
-        }),
-        update={
-            "messages": state["messages"] + [tool_message],
-            "current_agent": "passage_editor",  # 현재 활성 에이전트 표시
-        }
-    )
-
-# passage_editor_agent
-# - 모델: Model_ksat_v5_0601 (Fine-tuned GPT-4.1)
-# - 도구: passage_editor_tools (retrieve_data, google_search_node 등)
-```
-
-### 4단계: Question Editor 호출 및 문항 생성
-
-Passage Editor 작업 완료 시 `return` 노드를 거쳐 Supervisor로 제어권이 돌아갑니다. Supervisor가 문항 생성이 필요하다고 판단하면 `call_question_editor` 도구를 호출하여 생성된 지문과 함께 전달합니다. Question Editor는 지문을 바탕으로 수능 독서 문항을 출제합니다.
-
-```python
-@tool
-async def call_question_editor(request: Optional[str], passage: str, ...):
-    """question_editor 에이전트를 호출하는 도구입니다."""
-    # 지문과 함께 Question Editor로 제어권 이양
-    return Command(
-        graph=Command.PARENT,
-        goto=Send("question_editor", {
-            "passage": passage,  # 필수: 문항 출제 대상 지문
-            "request": request,  # 선택: 사용자 세부 요청사항
-            "question": question
-        }),
-        update={
-            "messages": state["messages"] + [tool_message],
-            "current_agent": "question_editor",
-        }
-    )
-
-# question_editor_agent
-# - 모델: Model_gemini_2_5_pro
-# - 도구: question_editor_tools (use_question_artifact, retrieve_data)
-```
-
-### 5단계: 최종 결과물 생성 및 스트리밍 반환
-
-Question Editor가 문항 생성을 완료하면 `return` 노드를 거쳐 Supervisor로 복귀합니다. Supervisor는 최종 검토를 진행하고 완성된 지문과 문항을 사용자에게 반환합니다. 모든 과정은 SSE(Server-Sent Events) 스트리밍으로 실시간 전송됩니다.
-
-```python
-# 최종 결과물 스트리밍 반환
-async def stream_agent_response(req):
-    session_data = await get_session_graph(req.session_id)
-    graph = session_data["graph"]
-    inputs = {"messages": [HumanMessage(content=req.prompt)]}
-    cfg = {"configurable": {"thread_id": req.session_id}, "recursion_limit": 100}
-    
-    async for chunk in graph.astream(inputs, config=cfg, subgraphs=True, stream_mode="messages"):
-        # ToolMessage/AIMessage 구분하여 프론트엔드에 실시간 전송
-        if chunk[0] == "supervisor" and isinstance(chunk[1]["messages"][-1], AIMessage):
-            yield f"data: {json.dumps({'content': content, 'type': 'ai_message'})}\n\n"
-```
-
-
----
-
-## 6️⃣ LangGraph 구현
-
-```mermaid
-graph TD
-    START([시작]) --> supervisor[🎯 Supervisor Agent]
-    
-    supervisor -->|call_passage_editor| passage_editor[✍️ Passage Editor Agent]
-    supervisor -->|call_question_editor| question_editor[❓ Question Editor Agent]
-    
-    passage_editor --> return_node[↩️ Return Node]
-    question_editor --> return_node
-    
-    return_node --> supervisor
-    
-    %% 도구 연결
-    supervisor -.->|retrieve_data| db1[(📊 ChromaDB<br/>기출 지문)]
-    supervisor -.->|google_search_node| web[🌐 Google Search]
-    
-    passage_editor -.->|retrieve_data| db1
-    passage_editor -.->|google_search_node| web
-    
-    question_editor -.->|retrieve_data| db1
-    question_editor -.->|use_question_artifact| output[📝 Question Output]
-    
-    %% 스타일링
-    classDef agent fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000
-    classDef node fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000
-    classDef db fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000
-    classDef tool fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000
-    classDef external fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#000
-    
-    class supervisor,passage_editor,question_editor agent
-    class return_node node
-    class db1 db
-    class output tool
-    class web external
-```
-
-### A. LangGraph 주요 컴포넌트
-
-**State (상태)**  
-에이전트 간 공유되는 전역 상태 객체로, 대화 히스토리, 생성된 컨텐츠, 세션 정보 등을 저장합니다. `add_messages` 리듀서를 통해 메시지가 자동으로 누적되며, 모든 에이전트가 동일한 상태에 접근하여 일관된 작업 흐름을 보장합니다.
-
-**Node (노드)**  
-개별 에이전트나 함수 단위의 작업 노드로, 각각 특정한 역할을 담당합니다. `create_react_agent`로 생성된 에이전트 노드는 자체적으로 도구 호출과 응답 생성을 수행하며, 일반 함수 노드는 상태 변환이나 라우팅 로직을 처리합니다.
-
-**Edge (엣지)**  
-노드 간 연결과 데이터 흐름을 정의하는 방향성 간선입니다. 정적 엣지는 고정된 경로를 정의하고, 조건부 엣지는 상태에 따라 동적으로 다음 노드를 결정합니다. `Command` 객체를 통해 런타임에 동적 라우팅도 가능합니다.
-
-### B. State 공유 구조
-
-**State 스키마 정의**:
-
-```python
-# 공통 스키마
-class MultiAgentState(AgentState):
-    messages: Annotated[List[BaseMessage], merge_messages]  # 커스텀 리듀서
-    current_agent: str | None = None      # 현재 활성 에이전트 추적
-    summary: str = ""                     # 주제 요약
-    passage: str = ""                     # 생성된 지문
-    question: str = ""                    # 생성된 문항
-    request: str = ""                     # 사용자 요청사항
-
-# Question Editor 전용 상태
-class QuestionEditorState(MultiAgentState):
-    messages: Annotated[List[BaseMessage], add_messages]  # 기본 리듀서 사용
-    passage: str      # 필수: 문항 출제 대상 지문
-    request: str      # 선택: 세부 요청사항
-    question: str     # 기존 문항 (수정 시)
-```
-
-##### **MultiAgentState 필드별 에이전트 참조 여부**:
-
-| field | Supervisor | Passage Editor | Question Editor | 설명 |
-|------------|:-------------:|:------------------:|:------------------:|------|
-| **messages** | 👀 참조 | - | - | 전체 대화 내역 |
-| **summary** | ✍️ **생성** | 👀 참조 | - | 개요 |
-| **passage** | 👀 참조 | ✍️ **생성** | 👀 **참조** | 지문 |
-| **question** | 👀 참조 | - | ✍️ **생성** | 문항 |
-| **request** | ✍️ **생성** | 👀 참조 | 👀 참조 | 사용자 요청사항 |
-
-
-
-
-### C. ReAct Agent 구현 (by LangGraph Prebuilt)
-
-```python
-from langgraph.prebuilt import create_react_agent
-
-# Supervisor 에이전트
-supervisor_agent = create_react_agent(
-    model=Model_gemini_2_5_pro,
-    state_schema=MultiAgentState,
-    tools=supervisor_tools,  # [call_passage_editor, call_question_editor, retrieve_data, google_search_node]
-    prompt=supervisor_system_prompt  # "당신은 수능 국어 독서 출제 작업을 총괄하는 슈퍼바이저입니다..."
-)
-
-# Passage Editor 에이전트 (Fine-tuned)
-passage_editor_agent = create_react_agent(
-    model=Model_ksat_v5_0601,  # Fine-tuned GPT-4.1
-    state_schema=MultiAgentState,
-    tools=passage_editor_tools,  # [retrieve_data, google_search_node]
-    prompt=passage_editor_system_prompt  # "당신은 수능 국어 독서 지문 전문 작성자입니다..."
-)
-
-# Question Editor 에이전트
-question_editor_agent = create_react_agent(
-    model=Model_gemini_2_5_pro,
-    state_schema=QuestionEditorState,
-    tools=question_editor_tools,  # [use_question_artifact, retrieve_data]
-    prompt=question_editor_system_prompt  # "당신은 수능 국어 독서 문항 전문 출제자입니다..."
-)
-```
-
-### D. 그래프 컴파일 및 실행
-
-```python
-def create_compiled_graph(memory):
-    builder = StateGraph(MultiAgentState)
-    
-    # 노드 추가
-    builder.add_node("supervisor", supervisor_agent)
-    builder.add_node("passage_editor", passage_editor_agent)
-    builder.add_node("question_editor", question_editor_agent)
-    builder.add_node("return", return_node)
-    
-    # 엣지 연결
-    builder.add_edge(START, "supervisor")
-    builder.add_edge("passage_editor", "return")
-    builder.add_edge("question_editor", "return")
-    
-    # 체크포인터와 함께 컴파일
-    compiled_graph = builder.compile(checkpointer=memory, debug=DEBUG)
-    return compiled_graph
-```
-
----
-
-## 7️⃣ Tool 구현
-
-### A. ChromaDB 기반 RAG 시스템
-
-#### ChromaDB 선택 이유
-- **경량성**: SQLite 기반으로 별도 서버 불필요, 컨테이너 환경에 최적화
-- **임베딩 통합**: OpenAI embedding 함수 내장으로 벡터 변환 자동화
-- **메타데이터 필터링**: 분야별/연도별 정확한 필터링 지원
-- **의미적 검색**: 코사인 유사도 기반 고품질 의미 검색
-
-#### 임베딩 구조 설계
-```
-📊 ChromaDB 컬렉션: kice_materials_v2
-├── 🎯 지문 (documents): text-embedding-3-large로 벡터화
-└── 📋 메타데이터 (metadatas):
-    ├── field: "인문,사회,과학,기술,예술" (분야)
-    ├── year: "2017~2025" (출제년도)
-    ├── exam_type: "수능,6월,9월" (시험 구분)
-    └── qna_details: JSON {
-        "questions": [...],  # 문항 목록
-        "answers": [...],    # 정답 목록  
-        "explanations": [...], # 해설 목록
-        "stats": {...}       # 정답률 등 통계
-    }
-```
-
-**설계 취지**: 지문 내용만 벡터화하고 문항/해설/정답률은 메타데이터로 분리하여 **지문 단위 의미 검색 극대화**
-
-### B. DB RAG 도구 구현
-
-```python
-@tool
-async def retrieve_data(
-    query: str,
-    tool_call_id: Annotated[str, InjectedToolCallId],
-    state: Annotated[dict, InjectedState],
-    field: List[Literal['인문','사회','예술','기술','과학']] | None = None,
-):
-    """기출 DB에서 텍스트 쿼리와 메타데이터 필터를 사용하여 관련 지문을 검색합니다."""
-    
-    # ChromaDB 연결 및 임베딩 함수 설정
-    client = chromadb.PersistentClient(path=db_path, settings=Settings(anonymized_telemetry=False))
-    collection = client.get_collection(
-        name="kice_materials_v2",
-        embedding_function=OpenAIEmbeddingFunction(
-            model_name="text-embedding-3-large",
-            api_key=os.environ.get("OPENAI_API_KEY")
-        )
-    )
-    
-    # 분야별 필터링 처리
-    if field:
-        for field_item in fields_list:
-            where_filter = {"field": field_item}
-            raw_results = await asyncio.to_thread(
-                collection.query,
-                query_texts=[query],
-                n_results=n_results,
-                where=where_filter,
-                include=['documents', 'metadatas', 'distances']
-            )
-            
-    # 유사도 기준 정렬 및 결과 포맷팅
-    all_results_intermediate.sort(key=lambda x: x["distance"])
-    final_results = all_results_intermediate[:n_results]
-    
-    # ToolMessage로 상태 업데이트
-    tool_message = ToolMessage(content=reference_content, tool_call_id=tool_call_id)
-    return Command(update={"messages": state["messages"] + [tool_message]})
-```
-
-**동작 원리**:
-1. **쿼리 임베딩**: 입력 텍스트를 text-embedding-3-large로 벡터화
-2. **의미적 검색**: ChromaDB가 코사인 유사도로 관련 지문 검색
-3. **메타데이터 필터**: 분야/연도 조건으로 결과 정제
-4. **결과 통합**: 여러 분야 검색 시 유사도 기준 통합 정렬
-5. **상태 업데이트**: 검색 결과를 ToolMessage로 에이전트에 전달
-
-### C. Web Search 도구 구현
-
-```python
-@tool
-async def google_search_node(
-    query: str,
-    state: Annotated[dict, InjectedState],
-    tool_call_id: Annotated[str, InjectedToolCallId]
-):
-    """Google 검색 도구, 최신 정보 검색 시 사용합니다."""
-    
-    from google import genai
-    from google.genai.types import Tool, GenerateContentConfig, GoogleSearch
-    
-    # Google Gemini + Search 통합 호출
-    client = genai.Client()
-    google_search_tool = Tool(google_search=GoogleSearch())
-    
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=f"주제에 대한 상세한 원리를 조사: {query}",
-        config=GenerateContentConfig(
-            tools=[google_search_tool],
-            response_modalities=["TEXT"],
-        )
-    )
-    
-    # 검색 결과와 출처 정보 추출
-    result = ''.join([part.text for part in response.candidates[0].content.parts])
-    grounding_sources = [
-        f"- [{site.web.title}]({site.web.uri})"
-        for site in response.candidates[0].grounding_metadata.grounding_chunks
-    ]
-    
-    # 결과를 ToolMessage로 상태 업데이트
-    tool_message = ToolMessage(
-        content=f"### Google 검색 결과\n{result}\n#### 출처\n" + '\n'.join(grounding_sources),
-        tool_call_id=tool_call_id
-    )
-    return Command(update={"messages": state["messages"] + [tool_message]})
-```
-
-**특징**:
-- **Gemini 통합**: Google의 Gemini 모델과 실시간 검색 API 연동
-- **출처 추적**: 검색 결과의 웹사이트 출처 정보 자동 포함
-- **컨텍스트 요약**: 단순 링크가 아닌 AI가 요약한 핵심 정보 제공
-
-### D. Handoff 도구
-
-#### call_passage_editor 도구
-
-```python
-@tool
-async def call_passage_editor(
-    summary: Optional[str],
-    request: Optional[str],
-    state: Annotated[dict, InjectedState],
-    tool_call_id: Annotated[str, InjectedToolCallId],
-):
-    """passage_editor 에이전트를 호출하는 도구입니다."""
-    
-    pre_passage = state.get("passage", "")
-    tool_message = ToolMessage(
-        content="passage_editor 에이전트를 호출합니다.",
-        tool_call_id=tool_call_id,
-    )
-    
-    # LangGraph Command로 에이전트 간 제어권 이양
-    return Command(
-        graph=Command.PARENT,  # 상위 그래프 수준에서 실행
-        goto=Send("passage_editor", {  # passage_editor 노드로 이동
-            "summary": summary, 
-            "request": request, 
-            "passage": pre_passage
-        }),
-        update={
-            "messages": state["messages"] + [tool_message],
-            "current_agent": "passage_editor",  # 현재 활성 에이전트 표시
-        }
-    )
-```
-
-#### call_question_editor 도구
-
-```python
-@tool
-async def call_question_editor(
-    request: Optional[str],
-    passage: str,
-    state: Annotated[dict, InjectedState],
-    tool_call_id: Annotated[str, InjectedToolCallId],
-):
-    """question_editor 에이전트를 호출하는 도구입니다."""
-    
-    question = state.get("question", "")
-    tool_message = ToolMessage(
-        content="question_editor 에이전트를 호출합니다.",
-        tool_call_id=tool_call_id,
-    )
-    
-    # 지문과 함께 Question Editor로 제어권 이양
-    return Command(
-        graph=Command.PARENT,
-        goto=Send("question_editor", {
-            "passage": passage,  # 필수: 문항 출제 대상 지문
-            "request": request,  # 선택: 사용자 세부 요청사항
-            "question": question
-        }),
-        update={
-            "messages": state["messages"] + [tool_message],
-            "current_agent": "question_editor",
-        }
-    )
-```
-
-**Handoff 메커니즘**:
-1. **도구 호출**: Supervisor가 상황에 맞는 call_* 도구 선택
-2. **Command 반환**: LangGraph의 `Command` 객체로 제어권 이양 명령
-3. **노드 이동**: `goto=Send()`로 특정 에이전트 노드로 직접 이동
-4. **상태 전달**: 필요한 컨텍스트(지문, 요청사항 등)를 타겟 에이전트에 전달
-5. **자동 복귀**: 작업 완료 시 `return` 노드를 거쳐 자동으로 Supervisor로 복귀
-
-
----
-
-## 8️⃣ 서버 구현 및 배포 구조
-
-### A. 전체 인프라 개요
-
-- **클라우드 환경**: GCP Compute Engine (Ubuntu 22.04, e2-standard-2, 2vCPU/8GB)
-- **배포 방식**: Docker 컨테이너 기반 자동화 배포
-- **CI/CD**: Github Actions로 빌드/배포 자동화
-- **네트워크**: HTTP/HTTPS 방화벽 오픈, 외부 IP 연결
-- **운영**: Supervisor로 프로세스 관리, 장애 자동복구
-
-
-### B. FastAPI 서버 구조 (agent_server.py)
-
-- **비동기 REST API**: `/chat/stream` 등 엔드포인트 제공
-- **세션별 LangGraph 인스턴스/DB 관리**
-- **SSE 기반 실시간 스트리밍 응답**
-- **CORS, 보안, 세션 만료 자동 정리**
-
-```python
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import aiosqlite, os, time, glob
-from contextlib import asynccontextmanager
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-from graph_factory import create_compiled_graph
-
-# FastAPI 앱 및 CORS
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://*.streamlit.app", "http://localhost:8501"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# 세션별 그래프/DB 관리
-session_graphs = {}
-DB_DIR = "DB/checkpointer"
-SESSION_EXPIRY_SECONDS = 3 * 60 * 60
-os.makedirs(DB_DIR, exist_ok=True)
-
-def get_new_db_path(session_id):
-    ts = int(time.time())
-    return os.path.join(DB_DIR, f"{session_id}_{ts}.db")
-
-def find_latest_db_path(session_id):
-    pattern = os.path.join(DB_DIR, f"{session_id}_*.db")
-    files = glob.glob(pattern)
-    if files:
-        files.sort(key=lambda p: int(p.split('_')[-1].split('.')[0]), reverse=True)
-        return files[0]
-    return get_new_db_path(session_id)
-
-async def get_session_graph(session_id):
-    if session_id in session_graphs:
-        return session_graphs[session_id]
-    db_path = find_latest_db_path(session_id)
-    memory = await aiosqlite.connect(db_path)
-    saver = AsyncSqliteSaver(memory)
-    await saver.setup()
-    graph = create_compiled_graph(memory=saver)
-    session_graphs[session_id] = {"graph": graph, "memory": memory, "db_path": db_path}
-    return session_graphs[session_id]
-
-# 스트리밍 핸들러
-async def stream_agent_response(req):
-    session_data = await get_session_graph(req.session_id)
-    graph = session_data["graph"]
-    inputs = {"messages": [HumanMessage(content=req.prompt)]}
-    cfg = {"configurable": {"thread_id": req.session_id}, "recursion_limit": 100}
-    async for chunk in graph.astream(inputs, config=cfg, subgraphs=True, stream_mode="messages"):
-        # ToolMessage/AIMessage 구분하여 프론트엔드에 전송
-        yield json.dumps({...})
-```
-
-### C. Docker 기반 배포 구조
-
-- **Dockerfile**: Python, requirements, DB 디렉토리, Supervisor 설정 포함
-- **docker-compose.yaml**: 포트, 볼륨, 환경변수, 재시작 정책 관리
-- **Supervisor**: FastAPI 서버 프로세스 자동 관리
-
-| 파일명              | 주요 역할/설정 요약                                  |
-|---------------------|------------------------------------------------------|
-| Dockerfile          | Python 3.10, requirements, DB, Supervisor, 포트 노출 |
-| docker-compose.yaml | 포트/볼륨/환경변수/재시작 정책                      |
-| supervisord.conf    | 멀티프로세스, 자동 재시작, 표준 로그                     |
-| requirements.txt    | FastAPI, LangGraph, ChromaDB, OpenAI 등 주요 의존성      |
-
-**Dockerfile 예시**
-```dockerfile
-FROM python:3.10-slim
-WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential sqlite3 libsqlite3-dev supervisor \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir protobuf==3.20.3
-RUN mkdir -p DB/checkpointer DB/kice && chmod -R 777 DB
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY . .
-ENV PYTHONUNBUFFERED=1
-EXPOSE 8000
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
-```
-
-**docker-compose.yaml**
-```yaml
-services:
-  ksat-agent:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./DB/kice:/app/DB/kice
-      - ./DB/checkpointer:/app/DB/checkpointer
-    env_file:
-      - .env
-    restart: always
-```
-
-**supervisord.conf**
-```
-[supervisord]
-nodaemon=true
-user=root
-logfile=/dev/null
-logfile_maxbytes=0
-logfile_backups=0
-
-[program:ksat-agent]
-command=python /app/agent_server.py
-directory=/app
-autostart=true
-autorestart=true
-startretries=5
-numprocs=1
-redirect_stderr=true
-stdout_logfile=/dev/stdout
-stdout_logfile_maxbytes=0
-stderr_logfile=/dev/stderr
-stderr_logfile_maxbytes=0
-```
-
-**requirements.txt**
-```
-langchain-core
-langgraph
-fastapi
-uvicorn
-sse-starlette
-pydantic
-python-dotenv
-langchain-anthropic
-chromadb==1.0.8
-openai
-langchain-openai
-langchain-google-genai
-langchain-community
-gunicorn
-asyncio
-aiosqlite
-langgraph.checkpoint.sqlite
-google-genai
-```
-
-
-### D. Github Actions 기반 CI/CD
-
-- **자동 빌드/테스트/배포**: main 브랜치 push 시 워크플로우 실행
-- **GCP 인스턴스 SSH 접속 후 Docker 이미지 pull & 재시작**
-- **환경 변수 및 비밀키 Github Secrets로 관리**
-
----
-
-## 🔟 Fine-tuning
+## 4️⃣ 파인튜닝
 
 ### A. 파인튜닝 필요성
 
-아무리 정교한 프롬프트를 적용해도, 본질적으로 쉽고 친절하게 설명하도록 학습된 기본 GPT 모델은 **수능 지문 특유의 촘촘한 정보 밀도**를 구현할 수 없었습니다. 수능 독서 지문은 제한된 공간 안에 압축적이고 학술적인 정보를 담아야 하는 독특한 문체적 특성을 가지고 있습니다.
+기본 GPT 모델은 친절하고 쉽게 설명하도록 학습되어 수능 지문 특유의 압축적 정보 밀도를 구현할 수 없었습니다. 수능 독서 지문은 제한된 공간 안에 학술적이고 촘촘한 정보를 담아야 하는 독특한 문체적 특성을 가지고 있습니다.
 
 ### B. 파인튜닝 과정
 
@@ -993,7 +246,15 @@ google-genai
 
 ### C. 파인튜닝 결과
 
-![Fine-tuning 성능 향상 결과](image.png)
+![Fine-tuning 성능 향상 결과](./docs/fine-tune.png)
+
+| Loss Type | 초기 (0 step) | 106 step | 213 step | 총 감소값 |
+|-----------|---------------|----------|----------|-----------|
+| Training Loss | 1.6 | 0.9 | 0.5 | -1.1 |
+| Validation Loss (Full Val) | 1.6 | 1.0 | 0.65 | -0.95 |
+
+**Loss 감소율**: Training Loss 68.8% 감소, Validation Loss 59.4% 감소
+
 
 - **문체 개선**: 친절한 설명형 → 압축적 학술형 문체로 전환
 - **정보 밀도 극대화**: 동일한 분량 내 2-3배 많은 개념과 정보 포함
@@ -1022,7 +283,7 @@ google-genai
 }
 </style>
 
-**동일한 시스템 프롬프트에 대한 출력 차이 비교**
+동일한 시스템 프롬프트에 대한 출력 차이 비교
 
 <div style="display: flex; gap: 24px;">
   <div style="flex:1; max-width:50%;">
@@ -1042,4 +303,316 @@ google-genai
     </div>
   </div>
 </div>
+
+---
+
+## 5️⃣ FastAPI + LangGraph 구현
+
+### A. 전체 아키텍처
+
+```mermaid
+graph TD
+    USER[👤 User]
+
+    subgraph FRONTEND_LAYER ["Presentation Layer (Frontend)"]
+        direction LR
+        STREAMLIT_UI["🖥️ Streamlit UI"]
+    end
+
+    subgraph DOCKER_CONTAINER ["Docker Container (Backend)"]
+        direction LR
+        subgraph FASTAPI_SERVER ["FastAPI Server"]
+            direction TB
+            API_GW["API Gateway (REST/SSE)"]
+            LANGGRAPH_ENGINE["LangGraph Engine"]
+        end
+        
+        subgraph AGENTS ["AI Agents"]
+            direction TB
+            SUPERVISOR["🤖 Supervisor"]
+            PASSAGE_EDITOR["✍️ Passage Editor"]
+            QUESTION_EDITOR["❓ Question Editor"]
+        end
+
+        subgraph BACKEND_TOOLS ["Backend Tools"]
+            direction TB
+            DB_RAG["📚 DB RAG"]
+            WEB_SEARCH["🌐 Web Search"]
+            HANDOFF["🤝 Handoff"]
+        end
+    end
+
+    subgraph DATA_LAYER ["Data Layer"]
+        direction LR
+        CHROMA_DB["📊 ChromaDB (Vector Store)"]
+        SQLITE_DB["💾 SQLite (Session State Checkpoints)"]
+    end
+
+    %% Connections
+    USER --> STREAMLIT_UI
+    STREAMLIT_UI -- "HTTP/SSE" --> API_GW
+    
+    API_GW --> LANGGRAPH_ENGINE
+    
+    LANGGRAPH_ENGINE -- "Workflow Orchestration" --> SUPERVISOR
+    SUPERVISOR -- "Tool Invocation" --> BACKEND_TOOLS
+    
+    DB_RAG -- "Data Retrieval" --> CHROMA_DB
+    LANGGRAPH_ENGINE -- "State Persistence" --> SQLITE_DB
+    
+    %% Styling
+    classDef frontend fill:#D6EAF8,stroke:#333;
+    classDef backend fill:##D5F5E3,stroke:#333;
+    classDef data fill:#D5F5E3,stroke:#333;
+
+    class USER,STREAMLIT_UI frontend;
+    class DOCKER_CONTAINER,FASTAPI_SERVER,API_GW,LANGGRAPH_ENGINE,AGENTS,SUPERVISOR,PASSAGE_EDITOR,QUESTION_EDITOR,BACKEND_TOOLS,DB_RAG,WEB_SEARCH,HANDOFF backend;
+    class CHROMA_DB,SQLITE_DB data;
+```
+
+- GCP 서버 내 Docker 컨테이너에서 FastAPI와 LangGraph 엔진이 함께 동작
+- 세션별 체크포인터 DB, ChromaDB로 데이터/상태 관리
+- 사용자는 웹 UI로 요청 입력, 실시간 결과 확인
+
+### B. 워크플로우
+
+- 사용자가 Streamlit UI에 주제/요청 입력
+- FastAPI 서버가 입력을 LangGraph 엔진에 전달
+- LangGraph가 에이전트/도구를 순차 호출
+- 처리 결과를 실시간으로 프론트엔드에 스트리밍
+- 입력 즉시 결과 확인, 전체 데이터 비동기 처리
+
+```mermaid
+sequenceDiagram
+    participant User as 👤 User
+    participant Frontend as 🖥️ Streamlit UI
+    participant Backend as ⚙️ FastAPI Server
+    participant Engine as 🧠 LangGraph Engine
+    
+    User->>Frontend: 주제/요청 입력
+    Frontend->>Backend: POST /chat/stream (세션 ID, 프롬프트)
+    Backend->>Engine: graph.astream_events(inputs) 호출
+    
+    loop 실시간 이벤트 스트림
+        Engine-->>Backend: Agent/Tool 실행 이벤트 청크
+        Backend-->>Frontend: SSE 이벤트 (AI 메시지, 상태 변경 등)
+        Frontend-->>User: UI에 실시간 결과 표시
+    end
+```
+
+### C. FastAPI 서버 구현
+
+- 각 사용자 세션별로 LangGraph 인스턴스 관리
+- 세션별 체크포인터 DB로 대화 이력/상태 저장
+- SSE 방식으로 LangGraph 실행 결과 실시간 전달
+- 여러 사용자가 동시에 접속해도 세션 독립 동작
+
+**1. 실시간 채팅 스트리밍 엔드포인트**
+- 사용자의 입력을 LangGraph 엔진에 전달, 결과를 스트리밍 반환
+
+```python
+@app.post("/chat/stream")
+async def stream_chat(req: ChatRequest):
+    async def generate():
+        session_data = await get_session_graph(req.session_id)
+        graph = session_data["graph"]
+        inputs = {"messages": [HumanMessage(content=req.prompt)]}
+        cfg = {"configurable": {"thread_id": req.session_id}, "recursion_limit": 100}
+        async for chunk in graph.astream(inputs, config=cfg, stream_mode="messages"):
+            yield f"data: {json.dumps(chunk)}\n\n"
+    return StreamingResponse(generate(), media_type="text/plain")
+```
+
+**2. 세션 대화 이력 조회 엔드포인트**
+- 특정 세션의 대화 이력 조회
+
+```python
+@app.get("/sessions/{session_id}/history")
+async def get_session_history(session_id: str):
+    session_data = await get_session_graph(session_id)
+    # 체크포인트에서 이력 조회 로직
+    return {"history": history}
+```
+
+**3. 세션 삭제 및 정리 엔드포인트**
+- 세션 삭제 및 리소스 정리
+
+```python
+@app.delete("/sessions/{session_id}")
+async def delete_session(session_id: str):
+    if session_id in session_graphs:
+        await session_graphs[session_id]["memory"].close()
+        del session_graphs[session_id]
+    return {"status": "deleted"}
+```
+
+### D. LangGraph 에이전트 구조
+
+- Supervisor, Passage Editor, Question Editor 등 역할별 에이전트로 구성
+- Supervisor가 전체 흐름 제어, 각 에이전트는 독립적으로 작업 수행
+- Tool Node를 통해 외부 DB/웹 검색 등 리소스 활용
+
+```mermaid
+graph TD
+    START([🚀 시작]) --> AGENTS
+    
+    subgraph AGENTS["🎯 AI Agents"]
+        SUPERVISOR[Supervisor Agent]
+        PASSAGE_EDITOR[Passage Editor]
+        QUESTION_EDITOR[Question Editor]
+    end
+    
+    AGENTS --> TOOLS[🛠️ Tool Node]
+    
+    TOOLS --> WEB[🌐 Web Search]
+    TOOLS --> DB[📊 ChromaDB]
+```
+
+**에이전트 간 Handoff**:
+- Command.PARENT: 부모 그래프로 제어권 이동
+- Send: 특정 에이전트에게 데이터와 함께 작업 전달
+- State 업데이트: 현재 활성 에이전트 추적 및 메시지 이력 관리
+- 비동기 처리: 각 에이전트는 독립적으로 실행, 완료 시 결과 반환
+
+```python
+@tool
+async def call_passage_editor(
+    summary: Optional[str],
+    request: Optional[str],
+    state: Annotated[dict, InjectedState],
+    tool_call_id: Annotated[str, InjectedToolCallId],
+):
+    pre_passage = state.get("passage", "")
+    tool_message = ToolMessage(content="passage_editor 에이전트를 호출합니다.", tool_call_id=tool_call_id)
+    return Command(
+        graph=Command.PARENT,
+        goto=Send("passage_editor", {"summary": summary, "request": request, "passage": pre_passage}),
+        update={"messages": state["messages"] + [tool_message], "current_agent": "passage_editor"}
+    )
+```
+
+### E. State 구조
+
+- State/reducer 구조는 불필요한 정보로 인한 컨텍스트 흐림, 토큰 소모 최적화를 위해 설계
+- 에이전트 간 공통 상태 객체(MultiAgentState) 공유
+- 각 에이전트는 필요한 정보만 참조/갱신, 전체 워크플로우 일관성 유지
+- 구조 확장 용이, 새로운 에이전트/기능 추가에 유연
+
+```python
+# 공통 스키마
+class MultiAgentState(AgentState):
+    messages: Annotated[List[BaseMessage], merge_messages]  # 커스텀 리듀서
+    current_agent: str | None = None      # 현재 활성 에이전트 추적
+    summary: str = ""                     # 주제 요약
+    passage: str = ""                     # 생성된 지문
+    question: str = ""                    # 생성된 문항
+    request: str = ""                     # 사용자 요청사항
+
+# Question Editor 전용 상태
+class QuestionEditorState(MultiAgentState):
+    messages: Annotated[List[BaseMessage], add_messages]  # 기본 리듀서 사용
+    passage: str      # 필수: 문항 출제 대상 지문
+    request: str      # 선택: 세부 요청사항
+    question: str     # 기존 문항 (수정 시)
+```
+
+**MultiAgentState 필드별 에이전트 참조 관계**:
+
+| field | Supervisor | Passage Editor | Question Editor | 설명 |
+|------------|:-------------:|:------------------:|:------------------:|------|
+| **messages** | 👀 참조 | - | - | 전체 대화 내역 |
+| **summary** | ✍️ **생성** | 👀 참조 | - | 개요 |
+| **passage** | 👀 참조 | ✍️ **생성** | 👀 **참조** | 지문 |
+| **question** | 👀 참조 | - | ✍️ **생성** | 문항 |
+| **request** | ✍️ **생성** | 👀 참조 | 👀 참조 | 사용자 요청사항 |
+
+### F. RAG DB(ChromaDB 임베딩 전략)
+
+- LangGraph 에이전트가 외부 지식/기출 데이터 참조 시 사용
+- 문제 출제, 지문 생성 등에서 유사도 검색·맥락 보강·참고자료 제공에 활용
+- 검색 정확도 향상을 위해 쿼리+메타데이터(연도, 분야 등) 필터 조합 지원
+- 불필요한 정보 노출 최소화, 필요한 맥락만 효율적으로 제공
+- OpenAI 임베딩 모델로 기출 지문 벡터화, 벡터 유사도 기반 검색
+- 대용량 데이터에서도 빠르고 정확한 의미 기반 검색 가능
+
+```mermaid
+graph LR
+    A[🎯 Agent] --> B[🛠️ Tool Node]
+    B --> C[🔍 임베딩 & 벡터 검색]
+    C --> D[📋 지문 + 메타데이터]
+    D --> A
+```
+
+
+
+---
+
+## 6️⃣ 배포
+
+### A. Docker 기반 컨테이너화
+
+**Docker 구성 요소**:
+
+| 구성 요소 | 설명 | 목적 |
+|-----------|------|------|
+| **Base Image** | Python 3.11-slim | 경량화된 Python 런타임 환경 |
+| **System Packages** | build-essential, sqlite3, supervisor | 컴파일 도구, DB, 프로세스 관리 |
+| **Python Dependencies** | requirements.txt 기반 설치 | FastAPI, LangGraph 등 필수 패키지 |
+| **Directory Structure** | DB/checkpointer, DB/kice | 데이터베이스 및 체크포인트 저장소 |
+| **Process Manager** | Supervisor | 멀티 프로세스 관리 및 자동 재시작 |
+| **Port Exposure** | 8000번 포트 | FastAPI 서버 외부 접근 |
+
+### B. GCP 클라우드 배포
+
+```mermaid
+graph TB
+    subgraph GCP["☁️ Google Cloud Platform"]
+        CE[🖥️ Compute Engine<br/>e2-standard-2]
+        FW[🔥 Firewall Rules<br/>HTTP/HTTPS]
+        PD[💾 Persistent Disk<br/>DB 데이터 보존]
+    end
+    
+    subgraph DOCKER["🐳 Docker Environment"]
+        DC[📋 Docker Compose]
+        APP[🚀 FastAPI App]
+        DB[📊 ChromaDB]
+        SUP[⚙️ Supervisor]
+    end
+    
+    CE --> DOCKER
+    FW --> CE
+    PD --> DB
+```
+
+**GCP 인프라 구성**:
+
+| 리소스 | 스펙 | 용도 |
+|--------|------|------|
+| **Compute Engine** | e2-standard-2 (2vCPU/8GB RAM) | 메인 애플리케이션 서버 |
+| **Operating System** | Ubuntu 22.04 LTS | 안정적인 Linux 환경 |
+| **Network** | HTTP(80)/HTTPS(443) 방화벽 | 웹 트래픽 허용 |
+| **Storage** | 영구 디스크 20GB | 데이터베이스 및 로그 보존 |
+| **Monitoring** | Supervisor + Docker logs | 프로세스 상태 및 로그 관리 |
+
+### C. Github Actions CI/CD
+
+```mermaid
+graph LR
+    A[👨‍💻 개발자<br/>main 브랜치 푸시] --> B[🔄 Github Actions<br/>빌드 & 체크아웃]
+    B --> C[🔐 GCP 서버<br/>코드 동기화]
+    C --> D[🐳 Docker 재빌드<br/>배포 완료]
+```
+
+**CI/CD 파이프라인 단계**:
+
+| 단계 | 작업 내용 | 소요 시간 |
+|------|-----------|-----------|
+| **1. Trigger** | main 브랜치 push 감지 | 즉시 |
+| **2. Checkout** | 최신 소스 코드 가져오기 | ~30초 |
+| **3. SSH Connect** | GCP 서버 원격 접속 | ~10초 |
+| **4. Code Update** | git pull로 코드 동기화 | ~20초 |
+| **5. Container Rebuild** | docker-compose 재빌드 | ~2-3분 |
+| **6. Health Check** | 서비스 정상 동작 확인 | ~30초 |
+
+
 
