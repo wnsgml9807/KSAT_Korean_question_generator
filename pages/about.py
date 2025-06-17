@@ -13,13 +13,14 @@ with col2:
     ```
     제작자: 권준희
     소속: 연세대학교 교육학과
-    버전: 0.7.3 (2025.06.10)
+    버전: 0.7.4 (2025.06.17)
     - Fine-tuned 모델 업그레이드로 지문 품질 대폭 향상
     - 문항 구성 다양화, 오답 선지 고도화
     - 출제 절차 간소화 및 사용자 상호작용 강화
     ```""", unsafe_allow_html=True)
 
-    st.info("좌측 상단의 '출제 AI 사용하기' 버튼을 클릭하여 직접 사용해보실 수 있습니다.", icon="💡")
+    st.info("KSAT Agent를 직접 사용해보고 싶다면, 좌측 상단의 '출제 AI 사용하기' 메뉴를 클릭하세요.", icon="💡")
+    st.info("KSAT Agent가 출제한 예시 지문을 확인하고 싶다면, 좌측 상단의 '출제 결과물 예시' 메뉴를 클릭하세요.", icon="💡")
 
     st.markdown("""
     ---
@@ -238,7 +239,7 @@ with col2:
             </div>
         </div>
         </div>""", unsafe_allow_html=True)
-
+    
     with st.expander("KSAT Agent가 작성한 수능 지문"):
         st.markdown("""
         ### B. KSAT Agent 결과물
@@ -309,6 +310,8 @@ with col2:
         </div>
         </div>
         """, unsafe_allow_html=True)
+    
+    st.info(":bulb: 좌측 상단의 '출제 결과물 예시' 메뉴를 통해 더 많은 예시를 확인할 수 있습니다.")
 
     st.markdown("""
     ---
