@@ -21,7 +21,7 @@ class Config:
         self.page_icon = "📚"
         self.layout = "wide"
         self.sidebar_state = "expanded"
-        self.version = "0.7.3"
+        self.version = "0.7.4"
         self.author = "권준희"
         self.where = "연세대학교 교육학과"
         self.contact = "wnsgml9807@naver.com"
@@ -68,6 +68,11 @@ class SessionManager:
         
         if "input" not in st.session_state:
             st.session_state.input = None
+
+        # 로그인 상태 초기화 추가
+        if 'logged_in' not in st.session_state:
+            st.session_state['logged_in'] = False
+            st.session_state['username'] = None
             
         if "current_agent" not in st.session_state:
             st.session_state["current_agent"] = "supervisor"  
@@ -77,7 +82,7 @@ class SessionManager:
             st.session_state.last_stream_ending_agent = None # 또는 "supervisor"로 초기화 가능
         if "is_first_stream_for_session" not in st.session_state:
             st.session_state.is_first_stream_for_session = True
-
+            
         # 최신 아티팩트 저장을 위한 세션 변수 추가
         if "latest_passage" not in st.session_state:
             st.session_state.latest_passage = None
@@ -86,9 +91,14 @@ class SessionManager:
 
     @staticmethod
     def reset_session(logger):
-        """Reset the session state, preserving only viewport_height"""
+        """Reset the session state, preserving viewport_height and login info"""
         current_session_id = st.session_state.get("session_id")
+
         logger.info(f"세션 리셋 요청 (ID: {current_session_id}).")
+
+        # 로그인 관련 변수들 저장
+        user_info = {key: st.session_state[key] for key in st.session_state.keys() 
+                    if key.startswith("user_") or key == "authenticated" or key == "logged_in" or key == "username"}
 
         # 세션 변수 정리 (viewport_height만 제외)
         keys_to_clear = list(st.session_state.keys())
@@ -99,6 +109,10 @@ class SessionManager:
         # 새 세션 ID 생성
         st.session_state.session_id = f"session_{uuid.uuid4()}"
         logger.info(f"새 세션 ID 생성됨: {st.session_state.session_id}")
+        
+        # 로그인 정보 복원
+        for key, value in user_info.items():
+            st.session_state[key] = value
         
         # 필수 세션 변수 다시 초기화
         st.session_state.messages = []
@@ -166,9 +180,8 @@ class UI:
             svg {
                 width: 100%;
                 height: 100%;
+            }
         }
-        }
-        </style>
         """, unsafe_allow_html=True)
     
 
@@ -181,11 +194,10 @@ class UI:
             
             st.info(
                 f"""
-                **제작자:** {config.author}
+                **문의 :**
                 {config.contact}
                 """
             )
-            
             
             if not st.session_state.get("is_streaming", False):
                 try:
@@ -206,6 +218,8 @@ class UI:
                     # 오류 발생 시에도 세션 상태에 viewport_height가 없으면 기본값 설정
                     if "viewport_height" not in st.session_state:
                         st.session_state.viewport_height = 800 # 기본값 설정
+            # --- --------------------------------------- ---
+
 
             # Session reset button
             if st.button("🔄️ 대화 새로고침", use_container_width=True, type="primary"):
@@ -214,6 +228,21 @@ class UI:
                 st.success("대화 기록이 초기화됩니다.")
                 time.sleep(1)
                 st.rerun()
+
+            # --- 로그아웃 버튼 추가 (로그인 상태일 때만 표시) ---
+            if st.session_state.get('logged_in', False):
+                if st.button("🔒 로그아웃", use_container_width=True):
+                    username = st.session_state.get('username', 'unknown')
+                    logger.info(f"User [{username}]: 로그아웃 버튼 클릭")
+                    # 세션 상태 초기화 (로그인 관련만)
+                    st.session_state['logged_in'] = False
+                    st.session_state['username'] = None
+                    # 필요한 다른 세션 상태도 초기화 가능
+                    # SessionManager.reset_session(logger) # 또는 전체 리셋
+                    st.success(f"{username}님, 로그아웃되었습니다.")
+                    time.sleep(1)
+                    st.rerun() # 로그아웃 시 페이지 새로고침하여 로그인 폼 표시
+            # --- --------------------------------------- ---
     
     @staticmethod
     def create_layout(viewport_height):
@@ -458,7 +487,7 @@ class MessageRenderer:
             with placeholders[idx].status("문제 작성 완료", state="complete", expanded=False):
                 pass
             
-            # 세션 상태에만 저장하고 렌더링하지 않음 (show_main_app에서 최종 렌더링)
+            # 세션 상태 업데이트와 동시에 실시간 렌더링
             st.session_state.latest_question = css + tool_content
         # Mermaid 도구: 확장된 완료 상태로 표시
         elif tool_name == "mermaid_tool": # 내부 로직은 원래 이름 사용 유지
@@ -520,7 +549,7 @@ class BackendClient:
             message_data = {"messages": []}
             
             # 사용자 이름 가져오기 (로그 추적용)
-            user_id = "anonymous" # 로그인 코드 제거로 인한 변경
+            user_id = st.session_state.get("username", "anonymous") # 로그인 안 된 경우 대비
 
             # 핵심 로그: 사용자 입력
             self.logger.info(f"User [{user_id}]: 프롬프트 전송됨\n{prompt}")
@@ -700,7 +729,6 @@ class BackendClient:
                                     st.code(tool_content)
                                     self.logger.error(f"Mermaid 렌더링 오류: {e}", exc_info=True)
                             current_idx += 1
-                            
                         elif tool_name == "use_question_artifact":
                             css = """<style>
                             @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
@@ -736,7 +764,7 @@ class BackendClient:
                             st.session_state.latest_question = css + tool_content
                             with self.question_placeholder:
                                 components.html(css + tool_content, height=viewport_height-10, scrolling=True)
-                                self.logger.info(f'User [anonymous]: 문항 작성 완료 \n{tool_content}')
+                                self.logger.info(f'User [{st.session_state.get("username", "anonymous")}]: 문항 작성 완료 \n{tool_content}')
                             current_idx += 1
                         elif tool_name == "google_search_node":
                             with placeholders[current_idx].status(f"🔍 Google 검색", state="complete", expanded=False):
@@ -840,7 +868,7 @@ class BackendClient:
             # For regular chat messages, just use a container
             with placeholders[idx].container(border=False):
                 st.markdown(text)
-
+    
     def _handle_json_error(self, error, line, placeholders, idx):
         """Handle JSON parsing errors"""
         error_msg = f"JSON 파싱 오류: {str(error)}"
@@ -907,8 +935,60 @@ def show_main_app(config, logger):
         """채팅 입력 제출 시 호출되는 콜백 함수"""
         st.session_state.is_streaming = True
     
-    # Initialize session (ensures messages/session_id/viewport_height exist)
+    # Initialize session (ensures messages/session_id/viewport_height/login status exist)
     SessionManager.initialize_session(logger)
+
+    # --- 로그인 모드 확인 ---
+    # st.secrets에서 LOGIN_MODE 값을 가져옵니다. 값이 없으면 "off"로 간주합니다.
+    LOGIN_MODE = st.secrets.get("LOGIN_MODE", "off")
+
+    # --- 로그인 확인 및 로그인 폼 처리 (LOGIN_MODE가 "on"일 경우) ---
+    if LOGIN_MODE == "on" and not st.session_state.get('logged_in', False):
+        # 컬럼을 사용하여 로그인 폼을 가운데 정렬 (wide 레이아웃에서)
+        col1, col2, col3 = st.columns([1, 1.3, 1]) # 비율 조절 가능 (예: [1, 2, 1])
+
+        with col2: # 가운데 컬럼 사용
+            st.title("KSAT Agent")
+            st.subheader("🔐 로그인")
+
+            input_username = st.text_input("username", key="login_username", placeholder="사용자/기관명" ) # 키 추가/변경
+            input_password = st.text_input("key", type="password", key="login_password", placeholder="비밀번호") # 키 추가/변경
+        
+            if st.button("로그인", key="login_button", type="primary", use_container_width=True): # 키 추가/변경
+                login_successful = False
+                try:
+                    # Secrets에서 사용자 정보 가져오기 (오류 처리 추가)
+                    credentials = st.secrets.get("credentials", {})
+                    users = credentials.get("users", [])
+
+                    if not users:
+                        st.error("설정된 사용자 정보가 없습니다. secrets.toml 파일을 확인하세요.")
+                    else:
+                        for user in users:
+                            # 입력된 비밀번호 해싱 제거 및 평문 비교로 변경
+                            # hashed_input_password = hashlib.sha256(input_password.encode()).hexdigest()
+                            # 사용자 이름 및 평문 비밀번호 비교
+                            if user.get("username") == input_username and user.get("password") == input_password:
+                                st.session_state['logged_in'] = True
+                                st.session_state['username'] = input_username
+                                logger.info(f"로그인 성공: {input_username}")
+                                login_successful = True
+                                st.success(f"{input_username}님, 환영합니다!")
+                                time.sleep(1) # 성공 메시지 잠시 보여주기
+                                st.rerun() # 로그인 성공 시 페이지 새로고침하여 메인 앱 표시
+                                break # 일치하는 사용자 찾으면 루프 종료
+
+                        if not login_successful:
+                            st.error("사용자 이름 또는 비밀번호가 잘못되었습니다.")
+                            logger.warning(f"로그인 실패 시도: 사용자명 '{input_username}'")
+
+                except Exception as e:
+                     logger.error(f"로그인 처리 중 오류 발생: {e}", exc_info=True)
+                     st.error(f"로그인 중 오류가 발생했습니다: {e}")
+                
+            st.info("""미리 안내된 계정 정보로 로그인하세요.\n\n계정 문의: wnsgml9807@naver.com""")
+
+        st.stop() # 로그인 안 된 상태면 아래 코드 실행 안 함
 
     # --- rerun 시 세션 상태에서 가장 최근 높이 값 사용 ---
     latest_detected_height = st.session_state.get("viewport_height", 800)
@@ -925,22 +1005,22 @@ def show_main_app(config, logger):
     # 첫 메시지일 경우, 환영 메시지 표시
     if len(st.session_state.messages) == 0:
         with passage_placeholder.container():
-            st.title("Welcome to KSAT Agent!")
-            st.subheader(":thinking_face: '원하는 분야'를 먼저 입력해 보세요!")
-            st.markdown("🎯*예시 1: 논리학 이론을 다룬 지문을 작성해 줘*")
-            st.markdown("🎯*예시 2: 생명과학 분야의 지문을 작성해 줘*")
-            st.markdown(" ")
-            st.markdown("ver : 0.7.3 (06.10)")
+            st.title("KSAT Agent")
+            st.markdown("ver : 0.7.4 (06.17)")
             st.code("""
             - 새로운 Fine-tuned 모델 탑재로 인한 지문 품질 향상
             - 문제 품질 향상 및 절차 간소화
             - 사용자 상호작용 강화
             """)
+            st.subheader(":bulb: 분야/주제를 입력해 보세요.")
+            st.markdown(":white_check_mark: **예시 1:** 인문/사회/과학/기술/예술 분야의 지문을 작성해 줘")
+            st.markdown(":white_check_mark: **예시 2:** 칸트의 미적 판단 이론을 다룬 지문을 작성해 줘")
+            st.markdown(" ")
     
     # --- 기존 메시지 표시 ---
     for message in st.session_state.messages:
         message_renderer.render_message(message, viewport_height)
-
+    
     # --- 최신 아티팩트 표시 ---
     # 최신 지문 표시
     if st.session_state.get("latest_passage"):
@@ -1002,8 +1082,9 @@ def main():
     # Define pages using st.Page
     # Use a lambda to pass config and logger to the main app function
     pages = [
-        Page(config.about_page_path, title="프로젝트 소개", icon="📄", default=True),
-        Page(lambda: show_main_app(config, logger), title="출제 AI 사용하기", icon="🤖")
+        Page(config.about_page_path, title="프로젝트 소개", icon="📄"),
+        Page(lambda: show_main_app(config, logger), title="출제 AI 사용하기", icon="🤖"),
+        Page("pages/collection.py", title="출제 결과물 예시", icon="📖", default=True)
     ]
     # --- End Page Definition ---
 
