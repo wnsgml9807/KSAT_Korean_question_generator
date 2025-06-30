@@ -20,7 +20,7 @@ class Config:
         self.page_title = "KSAT Agent"
         self.page_icon = "📚"
         self.layout = "wide"
-        self.sidebar_state = "expanded"
+        self.sidebar_state = "collapsed"
         self.version = "0.7.4"
         self.author = "권준희"
         self.where = "연세대학교 교육학과"
@@ -1082,16 +1082,28 @@ def main():
     # Define pages using st.Page
     # Use a lambda to pass config and logger to the main app function
     pages = [
-        Page(config.about_page_path, title="프로젝트 소개", icon="📄"),
+        Page(config.about_page_path, title="프로젝트 소개", icon="📄", default=True),
         Page(lambda: show_main_app(config, logger), title="출제 AI 사용하기", icon="🤖"),
-        Page("pages/collection.py", title="출제 결과물 예시", icon="📖", default=True)
+        Page("pages/collection.py", title="출제 결과물 예시", icon="📖")
     ]
     # --- End Page Definition ---
 
     # --- Navigation and Page Execution ---
-    # Create the navigation menu (renders in the sidebar automatically)
-    # and get the selected page object
-    pg = st.navigation(pages)
+    # Query parameter 확인하여 자동 페이지 이동
+    query_params = st.query_params
+    if query_params.get("page") == "chat":
+        # "출제 AI 사용하기" 페이지로 자동 이동
+        st.query_params.clear()  # 파라미터 정리
+        pg = st.navigation(pages)
+        # 직접 해당 페이지 선택
+        for page in pages:
+            if "출제 AI 사용하기" in page.title:
+                pg._current_page = page
+                break
+    else:
+        # Create the navigation menu (renders in the sidebar automatically)
+        # and get the selected page object
+        pg = st.navigation(pages)
 
     # Run the selected page's content
     pg.run()

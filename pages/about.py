@@ -3,740 +3,743 @@ import os
 import streamlit_mermaid as stmd
 import base64
 
-col1, col2, col3 = st.columns([1,6,1])
+
+st.markdown("""
+<style>
+    /* 전체 폰트 및 기본 스타일 */
+    body {
+        font-family: 'Pretendard', sans-serif;
+    }
+    /* 제목 스타일 */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Pretendard', sans-serif;
+        font-weight: 700;
+    }
+    h1 {
+        font-size: 2.8em;
+        color: #1E293B;
+    }
+    h2 {
+        font-size: 2em;
+        margin-top: 1.5em;
+        padding-bottom: 0.3em;
+        border-bottom: 2px solid #E5E7EB;
+        color: #334155;
+    }
+    h3 {
+        font-size: 1.5em;
+        margin-top: 1.2em;
+        color: #475569;
+    }
+    /* 본문 텍스트 - 기본 브라우저 스타일 사용 */
+    /* 뱃지 스타일 */
+    .badge-container {
+        display: flex;
+        gap: 8px;
+        margin-top: 1em;
+        margin-bottom: 1.5em;
+        flex-wrap: wrap;
+    }
+    .badge {
+        display: inline-block;
+        padding: 0.4em 0.8em;
+        font-size: 0.9em;
+        font-weight: 600;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: baseline;
+        border-radius: 0.375rem;
+    }
+    .badge-python { background-color: #FFF7ED; color: #C2410C; }
+    .badge-langgraph { background-color: #FCE7F3; color: #831843; }
+    .badge-fastapi { background-color: #E0F2F7; color: #00796B; }
+    .badge-chromadb { background-color: #E8EAF6; color: #3F51B5; }
+    .badge-streamlit { background-color: #FFF0F0; color: #FF4B4B; }
+    .badge-docker { background-color: #E3F2FD; color: #1E88E5; }
+
+    /* 나눔명조 폰트 (지문용) */
+    @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
+    .passage-font {
+        border: 1px solid #D1D5DB;
+        border-radius: 5px;
+        padding: 15px !important;
+        margin-top: 15px;
+        margin-bottom: 20px;
+        font-family: 'Nanum Myeongjo', serif !important;
+        font-size: 15px !important;
+        line-height: 1.8;
+        background-color: #F9FAFB;
+    }
+    .passage-font p {
+        text-indent: 1em; /* 각 문단의 첫 줄 들여쓰기 */
+        margin-bottom: 0em;
+        font-size: 1em;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+col1, col2, col3 = st.columns([1,8,1])
 
 with col2:
     st.markdown("""
     # KSAT Agent
-    _Multi-Agent 기반 수능 국어 독서 영역 출제 자동화 시스템_
-
-    ```
-    제작자: 권준희
-    소속: 연세대학교 교육학과
-    버전: 0.7.4 (2025.06.17)
-    - Fine-tuned 모델 업그레이드로 지문 품질 대폭 향상
-    - 문항 구성 다양화, 오답 선지 고도화
-    - 출제 절차 간소화 및 사용자 상호작용 강화
-    ```""", unsafe_allow_html=True)
-
-    st.info("KSAT Agent를 직접 사용해보고 싶다면, 좌측 상단의 '출제 AI 사용하기' 메뉴를 클릭하세요.", icon="💡")
-    st.info("KSAT Agent가 출제한 예시 지문을 확인하고 싶다면, 좌측 상단의 '출제 결과물 예시' 메뉴를 클릭하세요.", icon="💡")
-
-    st.markdown("""
-    ---
-
-    ## 1️⃣ 프로젝트 개요
-
-    KSAT Agent는 수능 국어 독서 영역 출제를 자동화하는 Multi-Agent 시스템입니다. 대성학원, 메가스터디 등 대형 학원에서 3년간 국어 모의고사 출제자로 활동한 경험과 노하우를 AI 시스템에 구현했습니다. 교육 격차 해소를 목적으로, 기존 출제 프로세스의 시간과 비용을 99% 단축하면서도 수능 기출 수준의 품질을 유지합니다.
+    ### Multi-Agent 기반 교육용 출제 시스템
+    
+    **기획 및 제작**: 권준희 (연세대 교육학과 재학)<br>
+    **ver. 0.7.4** (06.10)
     """, unsafe_allow_html=True)
+
+    # 기술 스택 뱃지
+    st.markdown("""
+    <div class="badge-container">
+        <span class="badge badge-python">Python</span>
+        <span class="badge badge-langgraph">LangGraph</span>
+        <span class="badge badge-fastapi">FastAPI</span>
+        <span class="badge badge-fastapi">Uvicorn</span>
+        <span class="badge badge-chromadb">ChromaDB</span>
+        <span class="badge badge-streamlit">Streamlit</span>
+        <span class="badge badge-docker">Docker</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 데모 실행하기 버튼
+    st.html('''
+    <div align="center" style="margin: 20px 0;">
+      <h3 style="margin-bottom: 20px;"> 직접 사용해 보세요 ✨</h3>
+    </div>
+    ''')
+    
+    # Streamlit 페이지 이동을 위한 버튼 (중앙 정렬)
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        if st.button("🚀 KSAT Agent 실행하기", type="primary", use_container_width=True):
+            # Query params를 사용해서 페이지 변경 신호 전달
+            st.query_params.page = "chat"
+            st.rerun()
+    
+    st.html('''
+    <div align="center" style="margin-top: 10px;">
+      <p><i>버튼을 클릭하면 데모 앱으로 이동합니다. 🚀</i></p>
+    </div>
+    ''')
+
+    # --- 1. 개요 ---
+    st.markdown('<h2 style="text-decoration: none; border-bottom: none;">1. 개요</h2>', unsafe_allow_html=True)
 
     with open("./docs/preview.png", "rb") as f:
         data = base64.b64encode(f.read()).decode("utf-8")
-
     st.html(f'''
-        <div style="text-align: center;">
-            <img src="data:image/png;base64,{data}" alt="KSAT Agent 최종 화면" style="width: 100%;">
-            <figcaption style="font-size: 0.9em; color: grey; margin-top: 10px;">KSAT Agent 최종 화면</figcaption>
+        <div style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
+            <img src="data:image/png;base64,{data}" alt="KSAT Agent 최종 화면" style="width: 100%; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
         </div>
     ''')
 
     st.markdown("""
-    ### 프로젝트 효과
-
-    | 항목 (지문 당) | 기존  | KSAT Agent 사용 시 |
-    |------|---------|--------------------|
-    | **소요 시간** | 1 ~ 2 개월 | **10 분** |
-    | **비용** | 100~200만 원 | **200~500 원** |
-    | **의사소통** | 서면 피드백 반복 | 실시간 AI 대화 |
-
-    - 기존 출제 프로세스 대비 비용과 출제 시간을 99% 단축
-    - 외주 출제자에 의존하던 비효율적인 구조를 개선
-    - 누구나 쉽게 고품질 모의고사 콘텐츠를 제작 가능
-    - **강남대성수능연구소와 협업 논의 진행 중**
-
-    ---
+    <p>KSAT(Korean SAT) Agent는 수능 시험 대비용 국어 모의고사를 출제하는 교육용 AI 에이전트 시스템입니다. 시중의 값비싼 모의고사 컨텐츠 대신, 학생들이 저렴한 가격에 양질의 학습 컨텐츠를 누리길 바라는 마음에서 프로젝트를 시작하게 되었습니다. 현재는 교사와 출제 전문가들이 국어 문항을 손쉽게 출제할 수 있는 보조 시스템으로 타겟 중입니다.</p>
+    <p>완성도 높은 문항은 논리적으로 정교하면서도 학생들에게 인지적 부담을 줄 수 있어야 합니다. 범용 AI는 이러한 '수능 감각'을 갖추지 못해 양질의 문항을 생성하는 데 한계가 있었기 때문에, 오랜 기간 문항 출제자로 활동한 경험과 노하우를 바탕으로 전문화된 AI 출제 시스템을 개발했습니다.</p>
     """, unsafe_allow_html=True)
 
-    st.markdown("""
-    ## 2️⃣ 사용자 경험
-
-    KSAT Agent는 6단계의 체계적인 워크플로우를 통해 수능 국어 독서 지문과 문항을 자동으로 생성합니다.
-
-    ### 1. 주제 및 분야 입력
-
-    사용자는 원하는 출제 분야나 구체적인 주제를 자연어로 입력합니다. Streamlit 기반의 대화형 웹 인터페이스에서 직관적으로 요청을 전달할 수 있습니다.
-    """, unsafe_allow_html=True)
-
-    with open("./docs/step_1.png", "rb") as f:
-        data = base64.b64encode(f.read()).decode("utf-8")
-
-    st.html(f'''
-        <div style="text-align: center;">
-            <img src="data:image/png;base64,{data}" alt="주제 및 분야 입력" style="width: 100%;">
-            <figcaption style="font-size: 0.9em; color: grey; margin-top: 10px;">주제 및 분야 입력</figcaption>
-        </div>
-    ''')
-
-    st.markdown("""
-    ### 2. 기출 DB 검색 & 주제 선정
-
-    입력된 주제와 가장 유사한 기출 지문을 ChromaDB 벡터 임베딩을 활용해 빠르게 검색합니다. 이를 통해 출제 의도를 명확히 파악하고, 기존 기출의 맥락을 참고할 수 있습니다.
-    """, unsafe_allow_html=True)
-
-    with open("./docs/step_2.png", "rb") as f:
-        data = base64.b64encode(f.read()).decode("utf-8")
-
-    st.html(f'''
-        <div style="text-align: center;">
-            <img src="data:image/png;base64,{data}" alt="기출 DB 조회" style="width: 100%;">
-            <figcaption style="font-size: 0.9em; color: grey; margin-top: 10px;">기출 DB 조회</figcaption>
-        </div>
-    ''')
-
-    st.markdown("""
-    ### 3. 웹 기반 자료 리서치
-
-    최신 정보나 특수 주제에 대해 웹 검색 도구를 활용해 추가 자료를 수집합니다. 이를 통해 최신 트렌드나 심화된 배경지식까지 반영할 수 있습니다.
-    """, unsafe_allow_html=True)
-
-    with open("./docs/step_3.png", "rb") as f:
-        data = base64.b64encode(f.read()).decode("utf-8")
-
-    st.html(f'''
-        <div style="text-align: center;">
-            <img src="data:image/png;base64,{data}" alt="자료 리서치" style="width: 100%;">
-            <figcaption style="font-size: 0.9em; color: grey; margin-top: 10px;">자료 리서치</figcaption>
-        </div>
-    ''')
-
-    st.markdown("""
-    ### 4. 개요 설계 및 지문 작성
-
-    AI 에이전트가 입력된 주제와 참고 자료를 바탕으로 지문 개요를 설계하고, 파인튜닝된 모델을 통해 실제 수능 스타일의 독서 지문을 작성합니다. 이 과정은 Passage Editor가 전담합니다.
-    """, unsafe_allow_html=True)
-
-    with open("./docs/step_4.png", "rb") as f:
-        data = base64.b64encode(f.read()).decode("utf-8")
-
-    st.html(f'''
-        <div style="text-align: center;">
-            <img src="data:image/png;base64,{data}" alt="개요 및 지문 작성" style="width: 100%;">
-            <figcaption style="font-size: 0.9em; color: grey; margin-top: 10px;">개요 및 지문 작성</figcaption>
-        </div>
-    ''')
-
-    st.markdown("""
-    ### 5. 문제 출제 설계 및 준비
-
-    작성된 지문을 바탕으로, Question Editor 에이전트가 기출 DB와 참고 자료를 추가로 탐색하여 문항 출제에 필요한 정보를 정리하고, 출제 방향을 설계합니다.
-    """, unsafe_allow_html=True)
-
-    with open("./docs/step_5.png", "rb") as f:
-        data = base64.b64encode(f.read()).decode("utf-8")
-
-    st.html(f'''
-        <div style="text-align: center;">
-            <img src="data:image/png;base64,{data}" alt="문제 출제 준비" style="width: 100%;">
-            <figcaption style="font-size: 0.9em; color: grey; margin-top: 10px;">문제 출제 준비</figcaption>
-        </div>
-    ''')
-
-    st.markdown("""
-    ### 6. 문항 및 해설 자동 생성
-
-    최종적으로 AI가 수능 독서형 문항과 해설을 자동으로 생성하여, 사용자는 완성된 지문과 문제, 해설을 한 번에 받아볼 수 있습니다.
-    """, unsafe_allow_html=True)
-
-    with open("./docs/step_6.png", "rb") as f:
-        data = base64.b64encode(f.read()).decode("utf-8")
-
-    st.html(f'''
-        <div style="text-align: center;">
-            <img src="data:image/png;base64,{data}" alt="문제 및 해설 출력" style="width: 100%;">
-            <figcaption style="font-size: 0.9em; color: grey; margin-top: 10px;">문제 및 해설 출력</figcaption>
-        </div>
-    ''')
-
-    st.markdown("""
-    ---
-
-    ## 3️⃣ 결과물 비교
-
-    - 동일한 경제 현상을 다룬 지문을 요청한 결과, 일반적인 GPT에 비해 지문과 문제 모두 '수능스러움' 훨씬 잘 묻어났습니다.
-    """, unsafe_allow_html=True)
-
-    with st.expander("일반 AI가 작성한 수능 지문"):
-        st.markdown("""
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
-        .passage-font {
-            border: 0.5px solid black;
-            border-radius: 0px;
-            padding: 5px !important;
-            margin-bottom: 20px;
-            font-family: 'Nanum Myeongjo', serif !important;
-            font-size: 14px !important;
-            line-height: 1.7;
-            letter-spacing: -0.01em;
-            font-weight: 500;
-        }
-        .passage-font p {
-            text-indent: 1em; /* 각 문단의 첫 줄 들여쓰기 */
-            margin-bottom: 0em;
-        }
-        .question-font {
-            font-family: 'Nanum Myeongjo', serif !important;
-            font-size: 14px !important;
-            line-height: 1.7em;
-            letter-spacing: -0.01em;
-            font-weight: 500;
-            margin-bottom: 1.5em;
-        }
-        .question-font table tr td table {
-            font-family: '돋움', Dotum, sans-serif !important;
-            font-size: 14px;
-            line-height: 1.5em;
-            font-weight: 500;
-            letter-spacing: -0.02em;
-        }
-        </style>
-
-        ### A. 일반 AI 결과물 (GPT 4.1)
-
-        <div style="display: flex; gap: 24px; justify-content: center;">
-        <div style="flex:1; max-width:450px;">
-            <div class="passage-font">
-            <p>한 국가의 경제에서 환율 변동은 수출과 수입, 그리고 경상수지에 다양한 영향을 미친다. 특히 'J커브 현상'은 환율이 상승(자국 통화의 가치가 하락)할 때 경상수지의 변화 양상이 단순하지 않음을 보여주는 이론이다.</p>
-            <p>예를 들어, 국내 기업들이 주로 원화로 비용을 지불하고, 수출 대금을 달러로 받는 한국 경제를 생각해 보자. 원/달러 환율이 상승하면, 달러로 표시된 상품 가격이 원화로 환산될 때 높아진다. 즉, 같은 달러 금액의 수출을 하더라도 이를 원화로 환산하면 더 많은 돈을 벌게 된다. 반면, 해외에서 수입하는 상품을 구매할 때는 더 많은 원화를 지불해야 한다.</p>
-            <p>하지만 J커브 현상이 의미하는 바는 단순히 환율이 오르면 경상수지가 바로 개선되지 않는다는 점이다. 예를 들어, 한국의 한 해 수출액이 1,000억 달러, 수입액이 900억 달러라고 가정하자. 원/달러 환율이 1,000원에서 1,200원으로 20% 상승했다고 하더라도, 대부분의 수출·수입 계약은 미리 정해진 가격과 물량에 따라 진행된다. 환율이 급등한 직후에는 수입 원화 비용이 즉시 늘어나지만, 수출 물량이나 수입 물량은 단기적으로 거의 변하지 않는다. 이로 인해 수입 대금이 증가하면서 오히려 경상수지가 일시적으로 악화될 수 있다.</p>
-            <p>시간이 지나면서 변화가 발생한다. 수입 상품의 가격이 오르면 소비자와 기업들은 대체재를 찾거나 수입을 줄이기 시작한다. 반면, 해외 시장에서는 한국 상품의 가격 경쟁력이 높아지기 때문에 수출 주문이 늘어난다. 대략 몇 개월에서 1년 정도의 시간이 흐르면, 수입은 감소하고 수출은 증가하여 경상수지가 점차 개선된다. 이 과정에서 경상수지의 변화 추이를 그래프로 나타내면, 처음에는 하락하다가 이후에 상승 곡선을 그리며 알파벳 'J'와 비슷한 형태가 나타난다.</p>
-            <p>즉, J커브 현상은 환율 상승 → 단기적 경상수지 악화 → 중장기적 경상수지 개선이라는 순차적 과정을 설명한다. 이러한 현상은 단기에는 가격 효과(환율 변동에 따른 금액 증가)가, 장기에는 수량 효과(무역량 변화에 따른 효과)가 더 크게 작용하기 때문이다.</p>
-            <p>따라서 J커브 현상은 환율정책을 운용할 때 정책 효과가 나타나는 시점과 그 원인을 이해하는 데 중요한 시사점을 제공한다.</p>
-            </div>
-        </div>
-        <div style="flex:1; max-width:450px;">
-            <div class="question-font">
-            <b>1. 다음 중 J커브 현상에 대한 설명으로 적절하지 <u>않은</u> 것은?</b><br>
-            <table style="width:100%; font-size:14px;">
-                <tr><td>ㄱ. 원/달러 환율이 상승할 경우, 경상수지는 즉시 개선된다.</td></tr>
-                <tr><td>ㄴ. 단기적으로는 수입 대금이 증가해 경상수지가 악화될 수 있다.</td></tr>
-                <tr><td>ㄷ. 시간이 지나면 수출은 증가하고 수입은 감소하여 경상수지가 개선될 수 있다.</td></tr>
-                <tr><td>ㄹ. J커브라는 명칭은 경상수지의 변화 양상이 영문자 'J'와 유사하게 나타나기 때문이다.</td></tr>
-            </table>
-            ① ㄱ  <br>② ㄴ  <br>③ ㄷ  <br>④ ㄹ  <br>⑤ ㄴ, ㄷ <br><br><br>
-            <b>2. 다음 &lt;보기&gt;는 J커브 현상과 관련된 상황을 서술한 것이다. 이에 대한 이해로 가장 적절한 것을 고르시오.</b><br>
-            <table style="width:100%; font-size:14px;">
-                <tr><td>
-                한 나라의 환율이 단기간에 15% 상승하였다. 이로 인해 수입품 가격이 즉각 오르면서, 해당 국가의 경상수지는 한동안 악화되는 모습을 보였다. 그러나 8개월이 지난 후부터 수출이 점차 늘어나고 수입이 감소하여 경상수지가 개선되기 시작하였다.<br><br>
-                경제학자 A는 이러한 현상이 국제무역 계약의 특성과 경제주체의 행동 변화가 시간이 지나면서 점진적으로 나타났기 때문이라고 설명하였다.
-                </td></tr>
-            </table>
-            ① 경상수지의 단기 악화는 환율 상승으로 인한 수입 대금 증가와 무역량의 즉각적 변화 때문이다.  <br>
-            ② J커브 현상에서는 환율이 상승한 직후부터 수출이 급격하게 증가한다.  <br>
-            ③ 환율 상승 직후, 대부분의 무역 계약은 이미 정해진 가격과 물량에 따라 이루어진다.  <br>
-            ④ 경제주체의 행동 변화는 환율 상승 직후 즉시 나타나 경상수지가 바로 개선된다.  <br>
-            ⑤ 장기적으로도 경상수지는 환율 변동과 관계없이 변하지 않는다.
-            </div>
-        </div>
-        </div>""", unsafe_allow_html=True)
+    # --- 2. 프로젝트 성과 ---
+    st.markdown('<h2 style="text-decoration: none; border-bottom: none;">2. 프로젝트 성과</h2>', unsafe_allow_html=True)
     
-    with st.expander("KSAT Agent가 작성한 수능 지문"):
-        st.markdown("""
-        ### B. KSAT Agent 결과물
+    st.markdown("#### 1) 비용 및 시간 절감")
+    st.markdown("""
+    <p>수능형 모의고사를 출판하는 작업은 많은 비용과 시간을 수반합니다. 각 분야(법/경제/기술 등) 전문가들에게 지문 원고를 의뢰하고 수 차례의 검토 작업을 진행하는 데에는 많은 인력과 한 달 이상의 시간, 그리고 하나의 문항 세트당 수백만 원 이상의 비용이 발생합니다. KSAT Agent는 AI를 바탕으로 이런 비용을 획기적으로 감소시킵니다.</p>
+    """, unsafe_allow_html=True)
 
-        <div style="display: flex; gap: 24px; justify-content: center;">
-        <div style="flex:1; max-width:450px;">
-            <div class="passage-font">
-            <p>수출이 수입보다 많은 상태를 무역수지가 흑자라고 하고, 수입이 수출보다 많은 상태를 무역수지가 적자라고 한다. 환율은 자국 화폐와 외국 화폐의 교환 비율을 의미하는데, 일반적으로 환율이 상승하면 수출이 증가하고 수입이 감소하여 무역수지가 개선된다고 알려져 있다. 그런데 단기적으로는 무역수지가 오히려 악화되었다가 일정 기간이 지난 후에야 개선되는 현상이 나타나기도 한다. 이러한 현상을 J커브 효과라고 하는데, 그 이유는 무역수지의 변화 추이를 그래프로 나타내면 알파벳 J와 같은 모양이 되기 때문이다.</p>
-            <p>그렇다면 J커브 효과는 왜 나타나는 것일까? 환율 변동에 따른 무역수지의 변화는 가격 효과와 물량 효과로 설명할 수 있다. 가격 효과란 환율 변동으로 인해 수출입 상품의 가격이 변동하여 무역수지가 변화하는 효과이고, 물량 효과란 가격 변동에 따라 수출입 상품의 물량이 변동하여 무역수지가 변화하는 효과이다. 환율이 상승하면 외국에서 보면 수출 상품의 가격은 이전보다 낮아지므로 수출은 증가하고, 수입 상품의 가격은 이전보다 높아지므로 수입은 감소하여 무역수지가 개선되는 것이 일반적인 경우이다.</p>
-            <p>그런데 수출입 물량은 단기적으로는 변동하지 않는 경우가 많다. 이미 체결된 수출입 계약에 따라 일정 기간은 그 계약에서 정해진 물량이 거래되고, 그 이후에도 가격 변동에 따라 물량이 조정되는 데에는 시차가 존재하기 때문이다. 따라서 단기에는 가격 효과만 나타나게 된다. 환율이 상승하여 자국 화폐의 가치가 하락하면 동일한 양의 수입 상품을 수입하기 위해 지불해야 하는 자국 화폐의 액수는 증가한다. 즉, 수입 물량은 변하지 않지만 수입에 지출되는 자국 화폐의 액수는 증가한다. 한편, 수출 상품의 경우에는 자국 화폐로 지불되는 액수는 변하지 않는다. 이로 인해 단기에는 무역수지가 악화되는 현상이 나타나게 된다. 그러나 일정 기간이 지나고 나면 수출은 증가하고 수입은 감소하는 물량 효과가 나타나기 시작하여 무역수지가 개선되는 방향으로 전환된다.</p>
-            <p>이러한 J커브 효과는 수출과 수입의 가격 탄력성이 중요한 역할을 한다. 가격 탄력성이란 상품의 가격이 변동할 때 그 가격 변동에 따라 수요나 공급이 민감하게 반응하는 정도를 말한다. 수출과 수입의 가격 탄력성이 크다면 환율 상승으로 인한 가격 변동에 따라 수출은 증가하고 수입은 감소하여 장기적으로는 무역수지가 개선되는 효과가 나타나게 된다.</p>
+    col_left, col_right = st.columns(2)
+    with col_left:
+        st.markdown("""
+        <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.05);height:200px;display:flex;flex-direction:column;margin-bottom:30px;">
+            <h4 style="margin-top:0;margin-bottom:12px;color:#374151;font-weight:600;border-left:4px solid #ef4444;padding-left:12px;">기존 프로세스</h4>
+            <ul style="padding-left:20px;color:#6b7280;line-height:1.6;flex-grow:1;">
+                <li>수백만 원의 인건비</li>
+                <li>1~2개월 소요</li>
+                <li>외부 출제자와 내부 연구진 간 의사소통의 비효율성</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_right:
+        st.markdown("""
+        <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.05);height:200px;display:flex;flex-direction:column;margin-bottom:30px;">
+            <h4 style="margin-top:0;margin-bottom:12px;color:#064e3b;font-weight:700;border-left:4px solid #10b981;padding-left:12px;">KSAT Agent</h4>
+            <ul style="padding-left:20px;color:#065f46;line-height:1.6;font-weight:500;flex-grow:1;">
+                <li>500원 이하의 문항 제작비용</li>
+                <li>5분 안에 초안 생성</li>
+                <li>실시간 채팅을 통한 상호작용</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### 2) 높은 수준의 퀄리티")
+    st.markdown("""
+    <p>동시에, KSAT Agent는 ChatGPT 등 범용 AI가 달성하기 힘든 높은 수준의 퀄리티를 유지합니다. Multi-Agent 시스템과 Fine-tuning된 전용 AI 모델을 구축하는 등 다양한 최신 기술을 통합적으로 활용하여 출제 성능을 극대화했습니다. 그 결과, 입시 전문 플랫폼 '오르비'의 유명 강사에게 실제 수능에 출제된 기출 문제 대비 75% 수준의 퀄리티에 도달했다는 평가를 받을 수 있었습니다. 이러한 성과를 바탕으로, 현재 KSAT Agent는 '강남대성학원' 소속의 부설 연구기관과 인수계약을 진행하고 있습니다.</p>
+    """, unsafe_allow_html=True)
+
+    with open("./docs/logo_kangnam_202111.png", "rb") as f:
+        data = base64.b64encode(f.read()).decode("utf-8")
+
+    st.html(f'''
+        <div style="margin-top: 15px; text-align: center;">
+            <img src="data:image/png;base64,{data}" alt="강남대성 로고" style="height: 100px;">
+        </div>
+    ''')
+
+    st.divider()
+
+    # --- 3. 사용자 경험 ---
+    st.markdown('<h2 style="text-decoration: none; border-bottom: none;">3. 사용자 경험 (UX)</h2>', unsafe_allow_html=True)
+    st.markdown("""
+    <p>사용자가 손쉽게 조작할 수 있도록 Streamlit 기반의 직관적인 챗봇 UI를 제작했습니다. 레이아웃은 총 세 개로 이루어져 있습니다. 왼쪽은 에이전트와 소통을 위한 영역, 가운데와 오른쪽은 각각 지문과 문항이 출력되는 영역으로, 실제 수능 시험지 스타일을 그대로 본떠 css를 구성했습니다.</p>
+    
+    <h4>작동 단계</h4>
+    <ol>
+        <li><strong>분야 입력</strong>: 사용자가 원하는 분야(인문/사회/예술/기술/과학)를 입력</li>
+        <li><strong>주제 추천</strong>: 기출 DB에서 유사한 소재의 지문을 검색하여 새로운 주제를 추천</li>
+        <li><strong>주제 선택</strong>: 사용자가 추천된 주제 중 하나를 선택</li>
+        <li><strong>자료 리서치 및 개요 작성</strong>: 에이전트가 선택된 주제에 대한 자료 조사와 구조화된 개요 작성</li>
+        <li><strong>지문 및 문항 생성</strong>: 완성된 개요를 바탕으로 수능형 지문과 문항, 해설을 자동 생성</li>
+    </ol>
+    
+    <p>아래는 KSAT Agent 시연 영상입니다.</p>
+    """, unsafe_allow_html=True)
+
+    # 시연 영상 (실제 영상 파일 또는 링크로 교체 필요)
+    st.video("https://youtu.be/faHAOZtIAKI") # Placeholder video
+
+    st.divider()
+
+    # --- 4. 시스템 아키텍처 및 사용 기술 스택 ---
+    st.markdown('<h2 style="text-decoration: none; border-bottom: none;">4. 시스템 아키텍처 및 기술 스택</h2>', unsafe_allow_html=True)
+    st.markdown("#### 1) 사용 기술 스택")
+    st.markdown("""
+    - **Frontend**: `Streamlit` + `custom css`
+    - **Backend**: `LangGraph` + `Fastapi` + `ChromaDB`
+    - **AI Fine-tuning**: `OpenAI`
+    - **Package**: `Docker`
+    """)
+    st.markdown("#### 2) 시스템 아키텍처")
+    
+    # 컬럼을 사용해서 가운데 정렬 시도
+    col1, col2, col3 = st.columns([1, 3, 1])
+    with col2:
+        stmd.st_mermaid("""
+        graph TB
+            subgraph FRONTEND["🖥️ Frontend"]
+                UI["Streamlit UI"]
+            end
+
+            subgraph BACKEND["🐳 Docker Container"]
+                FASTAPI["FastAPI Server"]
+                LANGGRAPH["LangGraph Engine"]
+                
+                subgraph AGENTS["AI Agents"]
+                    SUPERVISOR["🤖 Supervisor"]
+                    PASSAGE["✍️ Passage Editor"]
+                    QUESTION["❓ Question Editor"]
+                end
+            end
+
+            subgraph DATA["💾 Data Layer"]
+                CHROMA["ChromaDB<br/>(Vector Store)"]
+                SQLITE["SQLite<br/>(Checkpoints)"]
+            end
+
+            subgraph EXTERNAL["🌐 External APIs"]
+                OPENAI["OpenAI API"]
+                GEMINI["Gemini API"]
+            end
+
+            %% 연결 관계
+            UI --> FASTAPI
+            FASTAPI --> LANGGRAPH
+            LANGGRAPH --> SUPERVISOR
+            
+            SUPERVISOR --> PASSAGE
+            SUPERVISOR --> QUESTION
+            
+            PASSAGE --> CHROMA
+            QUESTION --> CHROMA
+            LANGGRAPH --> SQLITE
+            
+            SUPERVISOR --> OPENAI
+            PASSAGE --> OPENAI
+            QUESTION --> GEMINI
+            
+            %% 스타일링
+            classDef frontend fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+            classDef backend fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px
+            classDef agent fill:#F3E5F5,stroke:#6A1B9A,stroke-width:2px
+            classDef data fill:#FFF3E0,stroke:#F57C00,stroke-width:2px
+            classDef external fill:#FAFAFA,stroke:#616161,stroke-width:2px
+            
+            class UI frontend
+            class FASTAPI,LANGGRAPH backend
+            class SUPERVISOR,PASSAGE,QUESTION agent
+            class CHROMA,SQLITE data
+            class OPENAI,GEMINI external
+        """, pan=False, zoom=False, show_controls=False)
+    
+    st.markdown("#### 3) 스트리밍 워크플로우")
+    
+    # 컬럼을 사용해서 가운데 정렬
+    col1, col2, col3 = st.columns([1, 3, 1])
+    with col2:
+        stmd.st_mermaid("""
+        sequenceDiagram
+            participant User as 👤 사용자
+            participant FastAPI as ⚙️ FastAPI 서버
+            participant LangGraph as 🧠 LangGraph 엔진
+            
+            User->>FastAPI: 요청 입력(/stream 엔드포인트)
+            FastAPI->>LangGraph: 세션 생성/조회 후 astream 호출
+            
+            loop 실시간 이벤트 스트림
+                LangGraph-->>FastAPI: AI/ToolMessage 전송
+                FastAPI-->>User: 파싱 후 SSE 이벤트 전송
+            end
+        """, pan=False, zoom=False, show_controls=False)
+
+    st.divider()
+
+    # --- 5. AI 모델 활용 ---
+    st.markdown('<h2 style="text-decoration: none; border-bottom: none;">5. AI 모델 활용</h2>', unsafe_allow_html=True)
+    st.markdown("""
+    범용 AI가 작성한 글은 개념을 '쉽고 친절하게' 설명하는 데 초점이 맞추어져 있습니다. 하지만 수능 지문은 다릅니다. 다양한 개념 간의 복잡한 논리적 관계를 '명확하면서도 압축적'으로 표현해야 합니다. 아래의 예시와 같이, 기존 모델로는 이러한 문체를 구현하기에 한계가 있었습니다. 이에 후술할 두 개의 AI 모델을 Openai에서 제공하는 도구를 활용하여 직접 fine-tuning하여 탑재했습니다.
+    """, unsafe_allow_html=True)
+
+    col_d, col_e = st.columns(2)
+    with col_d:
+        st.markdown("""
+        <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.05);height:250px;display:flex;flex-direction:column;margin-bottom:30px;">
+            <h4 style="margin-top:0;margin-bottom:12px;color:#923c0e;font-weight:600;border-left:4px solid #ef4444;padding-left:12px;">범용 AI 모델의 문체</h4>
+            <ul style="padding-left:20px;color:#6b7280;line-height:1.6;margin-bottom:15px;">
+                <li>직관적이고 친절한 설명적 어투</li>
+                <li>낮은 정보 밀도와 분절된 개념 관계</li>
+                <li>주제를 둘러싼 다양한 화제를 나열식으로 설명하는 발산적 글쓰기</li>
+                <li>선형적 구조 (A-B-C-D)</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_e:
+        st.markdown("""
+        <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.05);height:250px;display:flex;flex-direction:column;margin-bottom:30px;">
+            <h4 style="margin-top:0;margin-bottom:12px;color:#065f46;font-weight:700;border-left:4px solid #10b981;padding-left:12px;">실제 수능의 문체</h4>
+            <ul style="padding-left:20px;color:#065f46;line-height:1.6;font-weight:500;margin-bottom:15px;">
+                <li>학술적이고 압축적인 어투</li>
+                <li>높은 정보 밀도와 유기적인 개념 관계</li>
+                <li>소수의 핵심 개념을 정의하고 이들 간의 논리적 관계를 파고드는 수렴형 글쓰기</li>
+                <li>나선형 구조 (A-B-A`-B`)</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("""
+    #### 1) 개념 구성 및 개요 작성 모델 – Reinforced Learning
+    <p>좋은 지문을 작성하기 위해서는 먼저 지문에 어떤 개념을 포함할지(What) 선정해야 합니다. 그리고 그것을 유기적으로 엮어 글을 써 내려가야 합니다.</p>
+    """, unsafe_allow_html=True)
+
+    # 좋은 지문의 조건을 인용구로 처리
+    st.markdown("""
+    > **수능 지문의 특징**
+    > 
+    > - 지문에 제시된 모든 개념은 향후 논의에서 다시 언급되어 이후 내용을 전개하는 데 활용됨.
+    > - 서로 다른 개념을 제시할 때는 단순히 병렬적으로 나열하는 것이 아니라, 학생들이 명확한 기준을 중심으로 비교-대조할 수 있도록 유도함.
+    > - 개념을 정의하고 설명하는 것에 그치지 않고, 특정 문제를 해결하거나 의문을 해소하는 등 완결된 서사 구조 속에서 활용됨.
+    """)
+
+    st.markdown("""
+    <p>범용 AI모델은 특히 개념의 유기적인 연결 부분에서 취약점을 보여, 최신 AI 학습 기법인 강화학습(RL)을 사용하여 이 부분을 집중적으로 보강했습니다. 강화학습이란 AI의 출력물에 따라 특정 기준에 맞춰 '보상'을 부여하는 방법론으로, GPT, Gemini, Claud 등 최신 모델들에서 활발히 사용되는 방법론입니다. KSAT Agent의 경우, Openai의 o4-mini 모델을 기반으로 데이터셋과 보상 함수를 자체적으로 설계해 강화학습을 진행했습니다. 
+    """, unsafe_allow_html=True)
+
+    # 컬럼을 사용해서 가운데 정렬
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        stmd.st_mermaid("""
+        graph TD
+            Agent["🤖 Agent<br/>(o4-mini)"]
+            Environment["🌐 Environment<br/>(학습 환경)"]
+            Grader["⚖️ Grader<br/>(동적 생성)"]
+            
+            Agent -->|"개요 작성 (Action)"| Environment
+            Environment -->|"평가 요청"| Grader
+            Grader -->|"보상 점수 (Reward)"| Agent
+            
+            style Agent fill:#E3F2FD,stroke:#1565C0,stroke-width:3px
+            style Environment fill:#FFF3E0,stroke:#F57C00,stroke-width:3px
+            style Grader fill:#E8F5E9,stroke:#2E7D32,stroke-width:3px
+        """, pan=False, zoom=False, show_controls=False)
+
+    st.markdown("""
+    <p>이때, 모델이 단순히 보상을 높이기 위해 편법(동일한 어구를 반복적으로 사용하여 '유기성' 점수를 높이는 등 올바르지 않은 학습 결과)을 사용하지 못하도록, 보상 점수를 책정하는 Grader를 샘플 데이터마다 '동적'으로 생성하여, 기출 지문에서 나타나는 개념 구성 방식과 서사 구조를 올바르게 체득할 수 있도록 섬세하게 설계했습니다.</p>
+    <p>학습 후 출력물을 분석한 결과, 동일한 분량의 개요에서 개념 밀도는 50% 향상되었으며, 인과/대조/조건/포함관계 등 개념 간의 논리적 연결 구조는 70% 향상되었습니다.</p>
+    """, unsafe_allow_html=True)
+
+    col_h, col_i = st.columns(2)
+    with col_h:
+        st.markdown("<h5>원본 모델(o4-mini)의 개요</h5>", unsafe_allow_html=True)
+        st.markdown("""
+        <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.05);height:520px;display:flex;flex-direction:column;margin-bottom:30px;">
+            <ul style="color:#6b7280;line-height:1.6;margin-bottom:15px;">
+                <li>개념의 수는 많으나, 다소 산발적이고 이후 논의와의 관련성이 부족함</li>
+                <li>개념 간의 유기적인 관계가 다소 미흡</li>
+            </ul>
+            <div class=\"passage-font\" style="font-size:13px !important;line-height:1.6;background:rgba(255,255,255,0.7);padding:12px;border-radius:8px;flex-grow:1;overflow-y:auto;">
+            <b>1. 도입부 - 효소와 저해제의 기본 개념</b><br>
+            - 생명체 내에서 <mark style=\"background:#FFE4E1;\">효소</mark>의 역할 설명 (생화학 반응의 촉매)<br>
+            - <mark style=\"background:#FFE4E1;\">효소</mark>의 활성 부위와 <mark style=\"background:#E1F5FE;\">기질</mark>의 결합 원리 소개<br>
+            - <mark style=\"background:#FFE4E1;\">효소</mark> 반응을 조절하는 <mark style=\"background:#F3E5F5;\">저해제</mark>의 존재와 필요성 제시<br>
+            - <mark style=\"background:#F3E5F5;\">저해제</mark>를 <mark style=\"background:#E8F5E9;\">경쟁적 저해제</mark>와 <mark style=\"background:#FFF3E0;\">비경쟁적 저해제</mark>로 분류<br>
+            <b>2. 의학적 응용과 약물 개발</b><br>
+            - <mark style=\"background:#E8F5E9;\">경쟁적 저해제</mark>의 <mark style=\"background:#FAFAFA;\">약물 활용 사례</mark> (예: <mark style=\"background:#E3F2FD;\">스타틴 계열 콜레스테롤 저하제</mark>)<br>
+            - <mark style=\"background:#FFF3E0;\">비경쟁적 저해제</mark>의 <mark style=\"background:#FAFAFA;\">약물 활용 사례</mark> (예: <mark style=\"background:#FFEBEE;\">항암제</mark>)<br>
+            - <mark style=\"background:#E0F2F1;\">선택적 저해제 개발</mark>의 중요성<br>
+            - <mark style=\"background:#F1F8E9;\">부작용 최소화</mark>를 위한 <mark style=\"background:#FCE4EC;\">특이성 향상 전략</mark><br>
+            <b>3. 세포 내 조절 메커니즘과 진화적 의의</b><br>
+            - <mark style=\"background:#EDE7F6;\">대사 경로</mark>에서의 <mark style=\"background:#E8EAF6;\">피드백 저해 현상</mark><br>
+            - <mark style=\"background:#F9FBE7;\">알로스테릭 조절</mark>을 통한 <mark style=\"background:#E0F7FA;\">효율적 에너지 관리</mark><br>
+            - <mark style=\"background:#E8F5E9;\">경쟁적</mark>/<mark style=\"background:#FFF3E0;\">비경쟁적 저해</mark>의 <mark style=\"background:#FFF8E1;\">상호보완적 역할</mark><br>
+            - <mark style=\"background:#F3E5F5;\">생명체의 항상성 유지</mark>에 대한 기여 (후략)<br>
             </div>
         </div>
-        <div style="flex:1; max-width:450px;">
-            <div class="question-font">
-            <b>1. ㉠ '가격 효과'와 ㉡ '물량 효과'에 대한 이해로 적절하지 <u>않은</u> 것은?</b><br>
-            <div style="margin-left: 1em; margin-top: 7px;">
-                <div style="text-indent: -1.5em; padding-left: 1.5em;">① 환율 상승 초기에는 ㉠이 주로 작용하여, 수입품에 대한 자국 화폐 지불액이 늘어나 무역수지가 악화될 수 있다.</div>
-                <div style="text-indent: -1.5em; padding-left: 1.5em;">② ㉡은 수출입 물량이 가격 변동에 반응하여 조정되는 것으로, 일반적으로 ㉠보다 시간적 지연을 두고 나타난다.</div>
-                <div style="text-indent: -1.5em; padding-left: 1.5em;">③ ㉠과 ㉡은 환율 변동이 무역수지에 미치는 영향을 설명하는 개념으로, J커브 효과의 발생 원인을 이해하는 데 기여한다.</div>
-                <div style="text-indent: -1.5em; padding-left: 1.5em;">④ 환율 상승 시 ㉠은 수출 상품의 외화 표시 가격을 하락시키고, ㉡은 수입 상품의 물량 감소를 유발하여 무역수지를 개선시킨다.</div>
-                <div style="text-indent: -1.5em; padding-left: 1.5em;">⑤ ㉠만 고려할 경우 환율 상승은 즉각적인 무역수지 개선을 가져오지만, ㉡의 지연된 발현으로 인해 J커브 현상이 나타난다.</div>
-            </div>
-            <br>
-            <div class="question-font">
-                <b>2. 다음 &lt;보기&gt;는 환율 상승 이후 시간에 따른 무역수지 변화를 나타낸 그래프이다. 윗글을 바탕으로 &lt;보기&gt;를 이해한 내용으로 적절하지 <u>않은</u> 것은? [3점]</b><br>
-                <table style="width:100%; font-size:14px;">
-                <tr>
-                    <td style="text-align: center; font-weight: bold; background-color: #f8f8f8; padding: 5px; font-size:10px;">&lt;보기&gt;</td>
-                </tr>
-                <tr>
-                    <td style="padding: 10px; font-size:14px;">
-                    그래프는 T<sub>0</sub> 시점에서 환율이 상승한 이후 시간 경과에 따른 무역수지의 변화를 보여준다. 가로축은 시간, 세로축은 무역수지를 나타내며, 세로축의 0은 무역수지 균형 상태를 의미한다. T<sub>1</sub>은 무역수지가 최저점에 도달하는 시점, T<sub>2</sub>는 무역수지가 다시 균형 상태로 회복되는 시점, T<sub>3</sub> 이후는 무역수지가 개선되어 흑자 상태를 유지하는 시점이다.
-                    <svg width="400" height="250" viewBox="0 0 400 250" style="width:60%; min-width:240px; max-width:60%; height:auto; display:block; margin-left:auto; margin-right:auto;">
-                        <line x1="50" y1="200" x2="380" y2="200" style="stroke:black;stroke-width:1" />
-                        <line x1="50" y1="50" x2="50" y2="200" style="stroke:black;stroke-width:1" />
-                        <text x="40" y="45" style="font-size:10px; text-anchor:end;">흑자</text>
-                        <text x="40" y="128" style="font-size:10px; text-anchor:end;">0</text>
-                        <text x="40" y="205" style="font-size:10px; text-anchor:end;">적자</text>
-                        <text x="50" y="215" style="font-size:10px; text-anchor:middle;">T₀</text>
-                        <text x="130" y="215" style="font-size:10px; text-anchor:middle;">T₁</text>
-                        <text x="230" y="215" style="font-size:10px; text-anchor:middle;">T₂</text>
-                        <text x="330" y="215" style="font-size:10px; text-anchor:middle;">T₃</text>
-                        <text x="370" y="215" style="font-size:10px; text-anchor:middle;">시간</text>
-                        <text x="15" y="128" style="font-size:10px; writing-mode:tb; text-anchor:middle;">무역수지</text>
-                        <line x1="50" y1="125" x2="380" y2="125" style="stroke:gray;stroke-width:0.5;stroke-dasharray:4;" />
-                        <path d="M 50 125 Q 90 180, 130 190 T 230 125 Q 280 90, 330 80 L 370 75" style="stroke:blue;stroke-width:2;fill:none;" />
-                        <circle cx="50" cy="125" r="2" style="fill:blue;" />
-                        <circle cx="130" cy="190" r="2" style="fill:blue;" />
-                        <circle cx="230" cy="125" r="2" style="fill:blue;" />
-                        <circle cx="330" cy="80" r="2" style="fill:blue;" />
-                        <text x="130" y="100" style="font-size:12px; text-anchor:middle;">A 구간 (T₀-T₁)</text>
-                        <text x="200" y="150" style="font-size:12px; text-anchor:middle;">B 구간 (T₁-T₂)</text>
-                        <text x="300" y="60" style="font-size:12x; text-anchor:middle;">C 구간 (T₂-T₃ 이후)</text>
-                    </svg>
-                    </td>
-                </tr>
-                </table>
-                <div style="margin-left: 1em; margin-top: 7px; font-size:14px;">
-                <div style="text-indent: -1.5em; padding-left: 1.5em;">① A 구간(T<sub>0</sub>~T<sub>1</sub>)에서는 환율 상승에도 불구하고 수출입 물량의 단기적 경직성으로 인해 가격 효과가 두드러져, 자국 화폐 기준 수입액이 증가하면서 무역수지가 악화된다.</div>
-                <div style="text-indent: -1.5em; padding-left: 1.5em;">② A 구간(T<sub>0</sub>~T<sub>1</sub>)이 형성되는 것은 기존 수출입 계약 물량이 일정 기간 유지되고, 생산 및 소비 패턴 변경에 시간이 소요되어 물량 조정이 지연되기 때문이다.</div>
-                <div style="text-indent: -1.5em; padding-left: 1.5em;">③ B 구간(T<sub>1</sub>~T<sub>2</sub>)에서는 가격 변동에 따른 물량 효과가 점차 나타나기 시작하여 수출 물량이 늘고 수입 물량이 줄면서 무역수지가 개선되기 시작한다.</div>
-                <div style="text-indent: -1.5em; padding-left: 1.5em;">④ 만약 T<sub>0</sub> 시점에서 수출입 상품의 가격 탄력성이 현재 그래프가 가정하는 것보다 더 크다면, T<sub>1</sub> 시점의 무역수지 적자 폭은 더 깊어지고 T<sub>2</sub> 시점은 더 늦춰질 것이다.</div>
-                <div style="text-indent: -1.5em; padding-left: 1.5em;">⑤ C 구간(T<sub>2</sub>~T<sub>3</sub> 이후)에서는 물량 효과가 가격 효과를 압도하여 무역수지가 지속적으로 개선되거나 흑자 상태를 유지하며, 이는 수출입 가격 탄력성이 클수록 더 뚜렷하게 나타난다.</div>
-                </div>
-            </div>
-            </div>
+        """, unsafe_allow_html=True)
+    with col_i:
+        st.markdown("<h5>KSAT Agent 전용 모델의 개요</h5>", unsafe_allow_html=True)
+        st.markdown("""
+        <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,0.05);height:520px;display:flex;flex-direction:column;margin-bottom:30px;">
+            <ul style="color:#065f46;line-height:1.6;font-weight:500;margin-bottom:15px;">
+                <li>개념의 수는 적지만, 하나의 개념이 이후 논의에서 계속 등장하면서 반복적으로 활용됨</li>
+                <li>개념 간의 유기적인 관계가 풍부함</li>
+            </ul>
+            <div class=\"passage-font\" style="font-size:13px !important;line-height:1.6;background:rgba(255,255,255,0.7);padding:12px;border-radius:8px;flex-grow:1;overflow-y:auto;">
+            <b>1. 효소 반응의 기본</b><br>
+            - <mark style=\"background:#FEF3C7;\">효소</mark>는 화학 반응을 빨리 일어나게 도와주는 단백질이고, <mark style=\"background:#E1F5FE;\">기질</mark>은 효소가 반응을 일으키는 대상 물질이다.<br>
+            - <mark style=\"background:#FEF3C7;\">효소</mark>와 <mark style=\"background:#E1F5FE;\">기질</mark>이 만나 ES(효소-기질) 복합체를 만든 뒤 반응이 일어나면 생성물(P)이 생긴다.<br>
+            - 반응 속도는 <mark style=\"background:#E1F5FE;\">기질</mark> 농도가 높아질수록 빨라지지만, 일정 이상이 되면 최대 속도(Vmax)에 도달해 더 빨라지지 않는다.<br>
+            - <mark style=\"background:#E1F5FE;\">기질</mark> 농도가 Vmax의 절반 속도를 낼 때의 농도를 Km이라고 부른다. 이는 '<mark style=\"background:#FEF3C7;\">효소</mark>가 <mark style=\"background:#E1F5FE;\">기질</mark>을 얼마나 잘 붙잡느냐'를 수치로 나타낸 것이다.<br>
+            <b>2. 경쟁적 저해제</b><br>
+            - 경쟁적 저해제는 <mark style=\"background:#E1F5FE;\">기질</mark>과 모양이 비슷해서 <mark style=\"background:#FEF3C7;\">효소</mark>의 활성 부위(기질이 붙는 자리)를 대신 차지하는 물질이다.<br>
+            - 저해제와 <mark style=\"background:#E1F5FE;\">기질</mark>이 같은 자리를 두고 "경쟁"하기 때문에, 저해제 농도가 높아지면 <mark style=\"background:#E1F5FE;\">기질</mark>이 붙기 어려워진다.<br>
+            - 이 경우 Km은 커진다. 하지만 Vmax는 변하지 않는다. (후략)
         </div>
         </div>
         """, unsafe_allow_html=True)
-    
-    st.info(":bulb: 좌측 상단의 '출제 결과물 예시' 메뉴를 통해 더 많은 예시를 확인할 수 있습니다.")
 
     st.markdown("""
-    ---
-
-    ## 4️⃣ 파인튜닝
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    ### A. 파인튜닝 필요성
-
-    기본 GPT 모델은 친절하고 쉽게 설명하도록 학습되어 수능 지문 특유의 압축적 정보 밀도를 구현할 수 없었습니다. 수능 독서 지문은 제한된 공간 안에 학술적이고 촘촘한 정보를 담아야 하는 독특한 문체적 특성을 가지고 있습니다.
-
-    ### B. 파인튜닝 과정
-
-    1. **기출 데이터 수집**: 100개 평가원 기출 문항을 기반 데이터로 수집
-    2. **Data Augmentation 적용**: LLM을 활용한 데이터 증강 기법으로 1000여개 데이터셋 구축
-    3. **OpenAI 플랫폼 파인튜닝**: Fine-tuning API를 통해 GPT-4.1 기반 전용 모델 학습
-    4. **최적 파라미터 탐색**: 수십 번의 실험을 통해 최적의 하이퍼파라미터 발견
-
-    ### C. 파인튜닝 결과
+    #### 2) 지문 작성 모델 – Supervised Fine Tuning
+    <p>완성도 높은 수능 지문을 작성하기 위해서는 내용물뿐만 아니라 그것을 어떻게 서술하는지(How)도 중요합니다. KSAT Agent는 작성된 개요를 수능형 지문으로 변환하는 모델을 별도로 튜닝해 탑재했습니다. 기출에서 추출한 개요-기출 지문 쌍으로 이루어진 100여개의 데이터의 다양성을 높여 과적합을 방지하고자, 데이터 증강(Augmentation) 기법을 사용해 지도 학습(SFT)를 성공적으로 완료할 수 있었습니다. 개요를 작성하는 AI가 지문을 작성하는 AI에게 개요를 건네주면, 해당 개요를 수능 문체와 형식에 맞게 다듬고 온전한 지문으로 변환합니다.</p>
     """, unsafe_allow_html=True)
 
     with open("./docs/fine-tune.png", "rb") as f:
         data = base64.b64encode(f.read()).decode("utf-8")
-
     st.html(f'''
-        <div style="text-align: center;">
-            <img src="data:image/png;base64,{data}" alt="Fine-tuning 성능 향상 결과" style="width: 100%;">
-            <figcaption style="font-size: 0.9em; color: grey; margin-top: 10px;">Fine-tuning 성능 향상 결과</figcaption>
+        <div style="text-align: center; margin-top: 20px;">
+            <img src="data:image/png;base64,{data}" alt="Fine-tuning 성능 향상 결과" style="width: 100%; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <figcaption style="font-size: 0.9em; color: grey; margin-top: 10px;">Fine-tuning Loss Curve</figcaption>
+        </div>
+    ''')
+    st.markdown("""
+    | Loss Type | 초기 (0 step) | 106 step | 213 step | 총 감소값 |
+    |:-----------|:---------------|:----------|:----------|:-----------|
+    | **Training Loss** | 1.6 | 0.9 | 0.5 | **-1.1** |
+    | **Validation Loss** | 1.6 | 1.0 | 0.65 | **-0.95** |
+
+    **Loss 감소율**: Training Loss 68.8% 감소, Validation Loss 59.4% 감소
+    <br><br>
+    """, unsafe_allow_html=True)
+
+
+
+    st.markdown("""
+    #### 3) 문제 출제 모델 – 최신 Gemini 2.5 pro 모델 활용
+    <p>앞선 두 모델이 출력한 지문을 바탕으로, 완성도 높은 고난도 문항을 출제하는 데에는 Gemini 2.5 pro + RAG 조합을 구성해 사용했습니다. 3년간의 출제 노하우를 담아 섬세하게 설계된 1000줄 가량의 프롬프트와 잘 정제된 기출 데이터를 사용했습니다.</p>
+    """, unsafe_allow_html=True)
+
+    # Gemini 로고 추가
+    with open("./docs/Google_Gemini_logo.svg.webp", "rb") as f:
+        data = base64.b64encode(f.read()).decode("utf-8")
+    st.html(f'''
+        <div style="text-align: center; margin: 20px 0;">
+            <img src="data:image/webp;base64,{data}" alt="Google Gemini 로고" style="height: 80px;">
         </div>
     ''')
 
-    st.markdown("""
-    | Loss Type | 초기 (0 step) | 106 step | 213 step | 총 감소값 |
-    |-----------|---------------|----------|----------|-----------|
-    | Training Loss | 1.6 | 0.9 | 0.5 | -1.1 |
-    | Validation Loss (Full Val) | 1.6 | 1.0 | 0.65 | -0.95 |
+    st.divider()
 
-    **Loss 감소율**: Training Loss 68.8% 감소, Validation Loss 59.4% 감소
+    # --- 6. LangGraph 설계/구현 ---
+    st.markdown('<h2 style="text-decoration: none; border-bottom: none;">6. LangGraph 설계/구현</h2>', unsafe_allow_html=True)
+    st.markdown("""
+    <p>앞서 설명한 다양한 AI 모델들을 효과적으로 통합하고 일관된 워크플로우를 구축하기 위해, Multi-Agent 프레임워크인 LangGraph를 사용했습니다. LangGraph는 다양한 제조사의 모델을 하나의 워크플로우에 통합하는 데에 최적화된 최신 프레임워크입니다.</p>
     """, unsafe_allow_html=True)
 
     st.markdown("""
-    - **문체 개선**: 친절한 설명형 → 압축적 학술형 문체로 전환
-    - **정보 밀도 극대화**: 동일한 분량 내 2-3배 많은 개념과 정보 포함
-    - **수능 특화**: 기출 문제와 유사한 논리 구조와 용어 사용 패턴 습득
-    - **과적합 방지**: 데이터 증강으로 충분한 데이터 확보, 3 epoch까지 train/val loss 지속 감소
-    - **전문가 평가**: 문체, 개념 밀도, 논리성, 용어 정확성 모든 영역에서 대폭 향상
-
-    ### D. 파인튜닝 전후 비교 예시
-
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap');
-    .passage-font {
-        border: 0.5px solid black;
-        border-radius: 0px;
-        padding: 10px;
-        margin-bottom: 20px;
-        font-family: 'Nanum Myeongjo', serif !important;
-        font-size: 14px;
-        line-height: 1.7;
-        letter-spacing: -0.01em;
-        font-weight: 500;
-    }
-    .passage-font p {
-        text-indent: 1em;
-        margin-bottom: 0em;
-    }
-    </style>
-
-    동일한 시스템 프롬프트에 대한 출력 차이 비교
-
-    <div style="display: flex; gap: 24px; justify-content: center;">
-    <div style="flex:1; max-width:450px;">
-        <h4>파인튜닝 이전</h4>
-        <blockquote>직관적이고 친절한 풀이형 설명, 동일한 분량에서 정보 밀도가 낮음</blockquote>
-        <div class="passage-font">
-        <p>우리는 일상생활 속에서 물건을 '가지고 있다'는 사실만으로 그 물건의 주인이라고 생각하기 쉽다. 그러나, 법적으로 '점유'와 '소유'는 구별된다. 점유란 물건에 대한 사실상의 지배 상태를 의미하며, 실제로 물건을 관리·통제하고 있는 상황을 말한다. 반면, 소유는 물건을 자유롭게 사용, 수익, 처분할 수 있는 권리를 의미한다. 예를 들어, 임차인은 임대차 계약을 통해 집을 점유하지만, 그 집의 소유자는 임대인이다. 이처럼 점유자와 소유자는 반드시 일치하지 않는다.</p>
-        <p>우리 민법은 오랜 기간 타인의 부동산을 점유한 자에게 일정한 조건을 갖추면 소유권을 취득할 수 있도록 점유취득시효 제도를 두고 있다. 이는 부동산 관계를 명확히 하여 법적 안정성을 도모하기 위한 것이다. 점유취득시효가 성립하려면 다음과 같은 요건이 필요하다. 첫째, 20년 동안 계속하여 점유해야 한다. 둘째, 소유자가 될 의사로, 즉 스스로의 권리로 점유(자주점유)해야 하며, 점유자는 자주점유한 것으로 추정된다. 셋째, 점유는 폭력이나 강박 등 없이 평온하게 이루어져야 하고, 넷째, 점유 사실이 외부에 드러나 은밀하지 않은, 공연한 점유이어야 한다.</p>
-        </div>
-    </div>
-    <div style="flex:1; max-width:450px;">
-        <h4>파인튜닝 이후</h4>
-        <blockquote>학술적, 압축적인 수능형 설명, 동일한 분량에서 정보 밀도가 높음</blockquote>
-        <div class="passage-font">
-        <p>우리 민법은 점유취득시효 제도를 두고 있다. 점유란 물건에 대한 사실상의 지배 상태를 의미하고, 소유란 물건을 사용․수익․처분할 수 있는 권리를 가진 상태를 의미한다. 따라서 점유자와 소유자는 항상 일치하지 않는다. 예를 들어 임차인은 임차물에 대한 점유자이지만, 임차물의 소유자는 아니다. 점유취득시효는 타인의 부동산을 소유의 의사로 평온․공연하게 20년간 점유한 자에게 그 부동산의 소유권을 취득할 수 있도록 하는 제도이다.</p>
-        <p>점유취득시효가 인정되려면 시효 기간의 점유가 자주점유이어야 한다. 자주점유란 소유의 의사로 하는 점유를 말하는데, 점유자가 스스로 소유자를 자처하는 것만으로는 부족하고 점유 취득의 원인으로 볼 때 소유자와 동일하게 지배․처리하려는 의사를 가지고 있어야 한다. 점유자는 자주점유로 추정되므로 타인이 빌려준 물건을 점유한 경우와 같이 점유 취득의 원인으로 볼 때 소유의 의사가 없다고 인정되는 특별한 사정이 있는 경우에만 점유자의 자주점유가 부정된다. 또한 점유취득시효가 인정되려면 시효 기간의 점유가 폭력이나 강박에 의한 것이 아니어야 하고 은밀한 것이어서는 안 된다.</p>
-        </div>
-    </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    ---
-
-    ## 5️⃣ FastAPI + LangGraph 구현
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    ### A. 전체 아키텍처
-    """, unsafe_allow_html=True)
-
-    stmd.st_mermaid("""
-    graph TD
-    USER["👤 User"]
-
-    subgraph FRONTEND_LAYER ["Presentation Layer (Frontend)"]
-        direction LR
-        STREAMLIT_UI["🖥️ Streamlit UI"]
-    end
-
-    subgraph DOCKER_CONTAINER ["Docker Container (Backend)"]
-        direction LR
-        subgraph FASTAPI_SERVER ["FastAPI Server"]
-            direction TB
-            API_GW["API Gateway (REST/SSE)"]
-            LANGGRAPH_ENGINE["LangGraph Engine"]
-        end
-        
-        subgraph AGENTS ["AI Agents"]
-            direction TB
-            SUPERVISOR["🤖 Supervisor"]
-            PASSAGE_EDITOR["✍️ Passage Editor"]
-            QUESTION_EDITOR["❓ Question Editor"]
-        end
-
-        subgraph BACKEND_TOOLS ["Backend Tools"]
-            direction TB
-            DB_RAG["📚 DB RAG"]
-            WEB_SEARCH["🌐 Web Search"]
-            HANDOFF["🤝 Handoff"]
-        end
-    end
-
-    subgraph DATA_LAYER ["Data Layer"]
-        direction LR
-        CHROMA_DB["📊 ChromaDB (Vector Store)"]
-        SQLITE_DB["💾 SQLite (Session State Checkpoints)"]
-    end
-
-    %% Connections
-    USER --> STREAMLIT_UI
-    STREAMLIT_UI -- "HTTP/SSE" --> API_GW
+    #### 1) State 구현
+    <p>LangGraph의 에이전트들은 상태(State)를 통해 서로의 출력물을 공유하고 참조할 수 있습니다. KSAT Agent는 에이전트별 컨택스트 관리를 위해 맞춤형 State와 업데이트 로직을 구현했습니다.</p>
     
-    API_GW --> LANGGRAPH_ENGINE
+    - **MultiAgentState 클래스 정의:**
+    ```python
+    from langgraph.prebuilt.chat_agent_executor import AgentState
+    from typing import Annotated, List, Literal
+    from langchain_core.messages import BaseMessage
+    from message_reducer import merge_messages
     
-    LANGGRAPH_ENGINE -- "Workflow Orchestration" --> SUPERVISOR
-    SUPERVISOR -- "Tool Invocation" --> BACKEND_TOOLS
-    
-    DB_RAG -- "Data Retrieval" --> CHROMA_DB
-    LANGGRAPH_ENGINE -- "State Persistence" --> SQLITE_DB
-    
-    %% Styling
-    classDef frontend fill:#D6EAF8,stroke:#333;
-    classDef backend fill:##D5F5E3,stroke:#333;
-    classDef data fill:#D5F5E3,stroke:#333;
-
-    class USER,STREAMLIT_UI frontend;
-    class DOCKER_CONTAINER,FASTAPI_SERVER,API_GW,LANGGRAPH_ENGINE,AGENTS,SUPERVISOR,PASSAGE_EDITOR,QUESTION_EDITOR,BACKEND_TOOLS,DB_RAG,WEB_SEARCH,HANDOFF backend;
-    class CHROMA_DB,SQLITE_DB data;
-    """, pan=False, zoom=False, show_controls=False)
-
-    st.markdown("""
-    - GCP 서버 내 Docker 컨테이너에서 FastAPI와 LangGraph 엔진이 함께 동작
-    - 세션별 체크포인터 DB, ChromaDB로 데이터/상태 관리
-    - 사용자는 웹 UI로 요청 입력, 실시간 결과 확인
-
-    ### B. 워크플로우
-
-    - 사용자가 Streamlit UI에 주제/요청 입력
-    - FastAPI 서버가 입력을 LangGraph 엔진에 전달
-    - LangGraph가 에이전트/도구를 순차 호출
-    - 처리 결과를 실시간으로 프론트엔드에 스트리밍
-    - 입력 즉시 결과 확인, 전체 데이터 비동기 처리
-    """, unsafe_allow_html=True)
-
-    stmd.st_mermaid("""
-    sequenceDiagram
-        participant User as "👤 사용자"
-        participant Frontend as "🖥️ Streamlit UI"
-        participant Backend as "⚙️ FastAPI 서버"
-        participant Engine as "🧠 LangGraph 엔진"
-        
-        User->>Frontend: 주제/요청 입력
-        Frontend->>Backend: POST /chat/stream (세션 ID, 프롬프트)
-        Backend->>Engine: graph.astream_events(inputs) 호출
-        
-        loop 실시간 이벤트 스트림
-            Engine-->>Backend: Agent/Tool 실행 이벤트 청크
-            Backend-->>Frontend: SSE 이벤트 (AI 메시지, 상태 변경 등)
-            Frontend-->>User: UI에 실시간 결과 표시
-        end
-    """, pan=False, zoom=False, show_controls=False)
-
-    st.markdown("""
-    ### C. FastAPI 서버 구현
-
-    - 각 사용자 세션별로 LangGraph 인스턴스 관리
-    - 세션별 체크포인터 DB로 대화 이력/상태 저장
-    - SSE 방식으로 LangGraph 실행 결과 실시간 전달
-    - 여러 사용자가 동시에 접속해도 세션 독립 동작
-
-    **1. 실시간 채팅 스트리밍 엔드포인트**
-    - 사용자의 입력을 LangGraph 엔진에 전달, 결과를 스트리밍 반환
-    """, unsafe_allow_html=True)
-
-    st.code("""
-    @app.post("/chat/stream")
-    async def stream_chat(req: ChatRequest):
-        async def generate():
-            session_data = await get_session_graph(req.session_id)
-            graph = session_data["graph"]
-            inputs = {"messages": [HumanMessage(content=req.prompt)]}
-            cfg = {"configurable": {"thread_id": req.session_id}, "recursion_limit": 100}
-            async for chunk in graph.astream(inputs, config=cfg, stream_mode="messages"):
-                yield f"data: {json.dumps(chunk)}\\n\\n"
-        return StreamingResponse(generate(), media_type="text/plain")
-    """, language='python')
-
-    st.markdown("""
-    **2. 세션 대화 이력 조회 엔드포인트**
-    - 특정 세션의 대화 이력 조회
-    """, unsafe_allow_html=True)
-
-    st.code("""
-    @app.get("/sessions/{session_id}/history")
-    async def get_session_history(session_id: str):
-        session_data = await get_session_graph(session_id)
-        # 체크포인트에서 이력 조회 로직
-        return {"history": history}
-    """, language='python')
-
-    st.markdown("""
-    **3. 세션 삭제 및 정리 엔드포인트**
-    - 세션 삭제 및 리소스 정리
-    """, unsafe_allow_html=True)
-
-    st.code("""
-    @app.delete("/sessions/{session_id}")
-    async def delete_session(session_id: str):
-        if session_id in session_graphs:
-            await session_graphs[session_id]["memory"].close()
-            del session_graphs[session_id]
-        return {"status": "deleted"}
-    """, language='python')
-
-    st.markdown("""
-    ### D. LangGraph 에이전트 구조
-
-    - Supervisor, Passage Editor, Question Editor 등 역할별 에이전트로 구성
-    - Supervisor가 전체 흐름 제어, 각 에이전트는 독립적으로 작업 수행
-    - Tool Node를 통해 외부 DB/웹 검색 등 리소스 활용
-    """, unsafe_allow_html=True)
-
-    stmd.st_mermaid("""
-    graph TD
-        START(["🚀 시작"]) --> AGENTS
-        
-        subgraph AGENTS["🎯 에이전트 그룹"]
-            SUPERVISOR["Supervisor Agent"]
-            PASSAGE["Passage Editor"]
-            QUESTION["Question Editor"]
-        end
-        
-        AGENTS --> TOOLS["🛠️ Tool Node"]
-        
-        TOOLS --> WEB["🌐 Web Search"]
-        TOOLS --> DB["📊 ChromaDB"]
-    """, pan=False, zoom=False, show_controls=False)
-
-    st.markdown("""
-    **에이전트 간 Handoff**:
-    - Command.PARENT: 부모 그래프로 제어권 이동
-    - Send: 특정 에이전트에게 데이터와 함께 작업 전달
-    - State 업데이트: 현재 활성 에이전트 추적 및 메시지 이력 관리
-    - 비동기 처리: 각 에이전트는 독립적으로 실행, 완료 시 결과 반환
-    """, unsafe_allow_html=True)
-
-    st.code("""
-    @tool
-    async def call_passage_editor(
-        summary: Optional[str],
-        request: Optional[str],
-        state: Annotated[dict, InjectedState],
-        tool_call_id: Annotated[str, InjectedToolCallId],
-    ):
-        pre_passage = state.get("passage", "")
-        tool_message = ToolMessage(content="passage_editor 에이전트를 호출합니다.", tool_call_id=tool_call_id)
-        return Command(
-            graph=Command.PARENT,
-            goto=Send("passage_editor", {"summary": summary, "request": request, "passage": pre_passage}),
-            update={"messages": state["messages"] + [tool_message], "current_agent": "passage_editor"}
-        )
-    """, language='python')
-
-    st.markdown("""
-    ### E. State 구조
-
-    - State/reducer 구조는 불필요한 정보로 인한 컨텍스트 흐림, 토큰 소모 최적화를 위해 설계
-    - 에이전트 간 공통 상태 객체(MultiAgentState) 공유
-    - 각 에이전트는 필요한 정보만 참조/갱신, 전체 워크플로우 일관성 유지
-    - 구조 확장 용이, 새로운 에이전트/기능 추가에 유연
-    """, unsafe_allow_html=True)
-
-    st.code("""
-    # 공통 스키마
     class MultiAgentState(AgentState):
-        messages: Annotated[List[BaseMessage], merge_messages]  # 커스텀 리듀서
-        current_agent: str | None = None      # 현재 활성 에이전트 추적
-        summary: str = ""                     # 주제 요약
-        passage: str = ""                     # 생성된 지문
-        question: str = ""                    # 생성된 문항
-        request: str = ""                     # 사용자 요청사항
-
-    # Question Editor 전용 상태
+        messages: Annotated[List[BaseMessage], merge_messages]
+        current_agent: str | None = None
+        llm_input_messages: List[BaseMessage] = []
+        react_count: int = 0  # 같은 에이전트면 두 번 연속 기출문제 주입 방지
+        summary: str = ""
+        passage: str = ""
+        question: str = ""
+        request: str = ""
+        mode: Literal["new", "edit"] = "new"
+    
     class QuestionEditorState(MultiAgentState):
-        messages: Annotated[List[BaseMessage], add_messages]  # 기본 리듀서 사용
-        passage: str      # 필수: 문항 출제 대상 지문
-        request: str      # 선택: 세부 요청사항
-        question: str     # 기존 문항 (수정 시)
-    """, language='python')
-
-    st.markdown("""
-    **MultiAgentState 필드별 에이전트 참조 관계**:
+        messages: Annotated[List[BaseMessage], add_messages]
+        passage: str
+        request: str
+        question: str
+    ```
+    
+    - **State 필드별 에이전트 참조 관계:**
 
     | field | Supervisor | Passage Editor | Question Editor | 설명 |
     |------------|:-------------:|:------------------:|:------------------:|------|
-    | **messages** | 👀 참조 | - | - | 전체 대화 내역 |
-    | **summary** | ✍️ **생성** | 👀 참조 | - | 개요 |
-    | **passage** | 👀 참조 | ✍️ **생성** | 👀 **참조** | 지문 |
-    | **question** | 👀 참조 | - | ✍️ **생성** | 문항 |
-    | **request** | ✍️ **생성** | 👀 참조 | 👀 참조 | 사용자 요청사항 |
-
-    ### F. RAG DB(ChromaDB 임베딩 전략)
-
-    - LangGraph 에이전트가 외부 지식/기출 데이터 참조 시 사용
-    - 문제 출제, 지문 생성 등에서 유사도 검색·맥락 보강·참고자료 제공에 활용
-    - 검색 정확도 향상을 위해 쿼리+메타데이터(연도, 분야 등) 필터 조합 지원
-    - 불필요한 정보 노출 최소화, 필요한 맥락만 효율적으로 제공
-    - OpenAI 임베딩 모델로 기출 지문 벡터화, 벡터 유사도 기반 검색
-    - 대용량 데이터에서도 빠르고 정확한 의미 기반 검색 가능
-    """, unsafe_allow_html=True)
-
-    stmd.st_mermaid("""
-    graph LR
-        A["🎯 Agent"] --> B["🛠️ Tool Node"]
-        B --> C["🔍 임베딩 & 벡터 검색"]
-        C --> D["📋 지문 + 메타데이터"]
-        D --> A
-    """, pan=False, zoom=False, show_controls=False)
+    | **messages** | 👀 참조 | - | - | 전체 대화 내역 (merge_messages 리듀서 적용) |
+    | **summary** | ✍️ **생성** | 👀 참조 | - | Supervisor가 작성한 개요 |
+    | **passage** | 👀 참조 | ✍️ **생성** | 👀 **참조** | Passage Editor가 작성한 지문 |
+    | **question** | 👀 참조 | - | ✍️ **생성** | Question Editor가 작성한 문항 |
+    | **request** | 👀 참조 | 👀 참조 | 👀 참조 | 에이전트에게 전달될 사용자 요청 |
+    | **mode** | ✍️ **생성** | 👀 참조 | - | 작업 모드 ("new" 또는 "edit") |""", unsafe_allow_html=True)
 
     st.markdown("""
-    ---
-
-    ## 6️⃣ 배포
+    #### 2) Graph 구조
     """, unsafe_allow_html=True)
+
+    # 컬럼을 사용해서 가운데 정렬
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        stmd.st_mermaid("""
+            graph TD
+                START[시작] --> SUPERVISOR["🤖 Supervisor"];
+
+                SUPERVISOR --> PASSAGE["✍️ Passage"];
+                SUPERVISOR --> QUESTION["❓ Question"];
+                
+                PASSAGE --> TOOLNODE["🛠️ ToolNode"];
+                QUESTION --> TOOLNODE;
+                
+                TOOLNODE --> SUPERVISOR;
+
+                SUPERVISOR --> END[종료];
+
+                classDef supervisor fill:#F3E5F5,stroke:#6A1B9A,stroke-width:2px;
+                classDef passage fill:#E3F2FD,stroke:#1565C0,stroke-width:2px;
+                classDef question fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px;
+                classDef toolnode fill:#FFF3E0,stroke:#F57C00,stroke-width:2px;
+                
+                class SUPERVISOR supervisor;
+                class PASSAGE passage;
+                class QUESTION question;
+                class TOOLNODE toolnode;
+        """, pan=False, zoom=False, show_controls=False)
 
     st.markdown("""
-    ### A. Docker 기반 컨테이너화
-
-    **Docker 구성 요소**:
-
-    | 구성 요소 | 설명 | 목적 |
-    |-----------|------|------|
-    | **Base Image** | Python 3.11-slim | 경량화된 Python 런타임 환경 |
-    | **System Packages** | build-essential, sqlite3, supervisor | 컴파일 도구, DB, 프로세스 관리 |
-    | **Python Dependencies** | requirements.txt 기반 설치 | FastAPI, LangGraph 등 필수 패키지 |
-    | **Directory Structure** | DB/checkpointer, DB/kice | 데이터베이스 및 체크포인트 저장소 |
-    | **Process Manager** | Supervisor | 멀티 프로세스 관리 및 자동 재시작 |
-    | **Port Exposure** | 8000번 포트 | FastAPI 서버 외부 접근 |
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    ### B. GCP 클라우드 배포
-    """, unsafe_allow_html=True)
-
-    stmd.st_mermaid("""
-    graph TB
-        subgraph GCP["☁️ Google Cloud Platform"]
-            CE["🖥️ Compute Engine<br/>e2-standard-2"]
-            FW["🔥 Firewall Rules<br/>HTTP/HTTPS"]
-            PD["💾 Disk<br/>Checkpointer, 기출 DB 데이터 보존"]
-        end
+    #### 3) Handoff 메커니즘
+    
+    KSAT Agent는 정형적인 그래프 구조에 얽매이지 않고, 에이전트가 자율적으로 워크플로우를 통제할 수 있도록 설계되었습니다. 이를 위해 LangGraph의 `Command`와 `Send` 메커니즘을 활용한 동적 에이전트 호출 시스템을 구현했습니다.
+    
+    **핵심 코드:**
+    ```python
+    return Command(
+        graph=Command.PARENT,
+        goto=Send("passage_editor", {
+            "summary": summary, 
+            "request": request, 
+            "passage": pre_passage, 
+            "mode": mode
+        }),
+        update={
+            "messages": state["messages"] + [tool_message],
+            "current_agent": "passage_editor",
+        }
+    )
+    ```
+    
+    **동작 원리:**
+    - `Command.PARENT`: 현재 그래프에서 부모 그래프로 제어권을 전달
+    - `Send("passage_editor", {...})`: passage_editor 노드로 직접 이동하며, 필요한 상태 데이터를 함께 전달
+    - `update`: 전역 상태를 업데이트하여 다른 에이전트들이 참조할 수 있도록 함
+    
+    이를 통해 Supervisor 에이전트는 사용자의 요청을 분석한 후, 적절한 전문 에이전트를 동적으로 호출할 수 있습니다.
+    
+    #### 4) Message Reducer 구현
+    **다중 LLM 제공업체 통합을 위한 커스텀 메시지 리듀서:**
+    
+    LangGraph에서 기본적으로 제공하는 message reducer는 강력하지만, 제조사들마다 tool-invocation이나 reasoning 토큰에 규격 차이가 있어 하나의 워크플로우에 통합하려면 reducer를 따로 구현해야 했습니다. KSAT Agent가 탑재한 파인 튜닝 모델(OpenAI)과 Gemini, Claude 모델들의 메시지 규격을 통일하기 위한 자체 알고리즘을 구현했습니다.
+    
+    ```python
+    def merge_messages(
+        left: Messages | BaseMessage | dict,
+        right: Messages | BaseMessage | dict,
+        *,
+        format: Optional[Literal["langchain-openai"]] = None,
+        strip_function_call: bool = True,
+    ) -> Messages:
         
-        subgraph DOCKER["🐳 Docker Environment"]
-            DC["📋 Docker Compose"]
-            APP["🚀 FastAPI App"]
-            DB["📊 ChromaDB"]
-            SUP["⚙️ Supervisor"]
-        end
+        def _prepare(msgs: Messages):
+            for m in msgs:
+                # ID 할당
+                if m.id is None:
+                    m.id = str(uuid.uuid4())
+                
+                # OpenAI 함수 호출 처리
+                if strip_function_call and getattr(m, "additional_kwargs", None):
+                    # OpenAI function_call 필드 제거 (필요시)
+                    m.additional_kwargs.pop("function_call", None)
+                    # reasoning 필드 제거 (OpenAI o4 모델 에러 방지)
+                    m.additional_kwargs.pop("reasoning", None)
+                
+                # Gemini 도구 호출 처리
+                tool_calls = getattr(m, "tool_calls", None)
+                if tool_calls:
+                    # ID 없는 도구 호출에 ID 부여
+                    for tool_call in tool_calls:
+                        if isinstance(tool_call, dict) and "id" not in tool_call:
+                            tool_call["id"] = str(uuid.uuid4())
+                
+                # Claude 도구 호출 처리 (tool_use 필드)
+                if getattr(m, "additional_kwargs", {}).get("tool_use"):
+                    tool_use = m.additional_kwargs.get("tool_use", {})
+                    if isinstance(tool_use, dict) and tool_use.get("id") is None:
+                        tool_use["id"] = str(uuid.uuid4())
         
-        CE --> DOCKER
-        FW --> CE
-        PD --> DB
-    """, pan=False, zoom=False, show_controls=False)
+        # ... 메시지 병합 로직 ...
+        return merged
+    ```
+    
+    #### 5) ChromaDB RAG 구현
+    
+    KSAT Agent는 3개의 전문화된 ChromaDB 컬렉션을 구축하여 다양한 관점에서 기출 데이터를 활용할 수 있도록 설계되었습니다. 각 컬렉션은 서로 다른 임베딩 모델과 검색 전략을 사용합니다.
+    
+    **3개 컬렉션 구조:**
+    
+    | 컬렉션명 | 임베딩 모델 | 데이터 형태 | 활용 목적 |
+    |----------|-------------|-------------|-----------|
+    | **kice_materials_v2** | text-embedding-3-large | 원본 지문 + 메타데이터 | 유사 지문 검색 |
+    | **kice_subject_summaries** | text-embedding-3-small | 주제별 요약 | 주제 탐색 |
+    | **kice_summary_with_outline** | text-embedding-3-large | AI 생성 개요 | 구조화된 개요 참조 |
+    
+    **핵심 검색 도구 구현:**
+    ```python
+    @tool
+    async def retrieve_data(
+        query: str,
+        tool_call_id: Annotated[str, InjectedToolCallId],
+        state: Annotated[dict, InjectedState],
+        field: List[Literal['인문','사회','예술','기술','과학']] | None = None,
+    ):
+        \"\"\"기출 DB에서 텍스트 쿼리와 메타데이터 필터를 사용하여 관련 지문을 검색합니다.
+        여러 분야가 지정되면 각 분야에서 검색된 결과를 종합하여 유사도 상위 3개를 반환합니다.\"\"\"
+        
+        n_results = 3
+        db_path = os.path.join(os.path.dirname(__file__), "DB/kice")
+        collection_name = "kice_materials_v2"
+        
+        client = chromadb.PersistentClient(path=db_path)
+        collection = client.get_collection(
+            name=collection_name,
+            embedding_function=OpenAIEmbeddingFunction(
+                model_name="text-embedding-3-large",
+                api_key=os.environ.get("OPENAI_API_KEY")
+            )
+        )
+        
+        # 분야별 검색 수행
+        all_results_intermediate = []
+        seen_ids = set()
+        
+        if not fields_list:
+            # 전체 분야 검색
+            raw_chroma_results = await asyncio.to_thread(
+                collection.query,
+                query_texts=[query],
+                n_results=n_results,
+                include=['documents', 'metadatas', 'distances']
+            )
+        else:
+            # 각 분야별 검색 후 통합
+            for field_item in fields_list:
+                where_filter = {"field": field_item}
+                field_specific_results = await asyncio.to_thread(
+                    collection.query,
+                    query_texts=[query],
+                    n_results=n_results,
+                    where=where_filter,
+                    include=['documents', 'metadatas', 'distances']
+                )
+                # 결과 통합 로직...
+        
+        # 유사도 기준 정렬 및 최종 결과 반환
+        return Command(update={"messages": state["messages"] + [tool_message]})
+    ```
+    
+    **메타데이터 필터링 전략:**
+    - **분야별 필터링**: 5개 주요 분야(인문, 사회, 예술, 기술, 과학)로 구분하여 정확한 검색 결과 제공
+    - **중복 제거**: `seen_ids` 집합을 활용하여 여러 분야 검색 시 중복 문서 방지
+    - **유사도 기준 통합**: 각 분야별 검색 결과를 distance 값으로 정렬하여 최종 상위 결과 선별
+    
+    **비동기 처리 최적화:**
+    ```python
+    # ChromaDB 쿼리를 별도 스레드에서 실행하여 메인 이벤트 루프 블로킹 방지
+    raw_chroma_results = await asyncio.to_thread(
+        collection.query,
+        query_texts=[query],
+        n_results=n_results,
+        where=where_filter,
+        include=['documents', 'metadatas', 'distances']
+    )
+    ```
+    
+    **검색 결과 포맷팅:**
+    - JSON 형태의 구조화된 메타데이터 파싱
+    - 유사도 점수 계산 (1 - distance)
+    - 순위별 결과 정렬 및 반환
+    
+    이를 통해 에이전트들은 사용자 쿼리에 가장 적합한 기출 지문을 실시간으로 검색하고, 이를 바탕으로 고품질의 지문과 문항을 생성할 수 있습니다.
+    
+    #### 6) 기타 Tool
+    - **google_search_node**: Google 검색 도구를 통한 실시간 정보 수집
+    - **mermaid_tool**: 머메이드 다이어그램 생성 도구
+    - **use_question_artifact**: 생성한 문항을 사용자에게 출력하는 도구
+    
+    모든 도구는 `Command` 객체를 반환하여 LangGraph의 상태 업데이트 메커니즘과 통합됩니다.
+    """)
 
+    st.divider()
+
+    # --- 7. Docker 컨테이너화 및 배포 환경 ---
+    st.markdown('<h2 style="text-decoration: none; border-bottom: none;">7. Docker 컨테이너화 및 배포 환경</h2>', unsafe_allow_html=True)
     st.markdown("""
-    **GCP 인프라 구성**:
+    #### 1) Docker 컨테이너화
+    <p>KSAT Agent는 기본적으로 Linux Ubuntu 22.04 + Pyhon 3.11 slim 조합으로 Docker 컨테이너화되어, 어디서든 쉽게 구축할 수 있도록 배포 환경을 설계했습니다.</p>
+    
+    #### 2) GCP 서버 구축
+    <p>학원 시연 및 포트폴리오용 데모는 GCP Cloud의 Virtual Compute Machine 서버에서 가동되며, Streamlit 링크를 통해 인터넷 사용이 가능한 어디서든 접속하여 사용할 수 있도록 배포 환경이 구축되어 있습니다. 현재는 시험 배포판으로, 100명 이하의 사용자가 접속하여 사용했을 때 무리가 없도록 uvicorn + 4x worker 조합으로 구성되었습니다. 향후 상용화 단계로 진입했을 때 분산 서버 아키텍처와 Gunicorn 조합을 사용할 예정입니다.</p>
 
-    | 리소스 | 스펙 | 용도 |
-    |--------|------|------|
-    | **Compute Engine** | e2-standard-2 (2vCPU/8GB RAM) | 메인 애플리케이션 서버 |
-    | **Operating System** | Ubuntu 22.04 LTS | 안정적인 Linux 환경 |
-    | **Network** | HTTP(80)/HTTPS(443) 방화벽 | 웹 트래픽 허용 |
-    | **Storage** | 영구 디스크 20GB | 데이터베이스 및 로그 보존 |
-    | **Monitoring** | Supervisor + Docker logs | 프로세스 상태 및 로그 관리 |
-
-    ### C. Github Actions CI/CD
+    #### 3) CI/CD 구축
+    <p>Github Action Workflow를 구축하여, 로컬 머신에서 git push만으로 서버에서 가동 중인 docker 컨테이너를 compose down 후 코드를 pull, 새로운 빌드로 다시 compose-up하는 단계를 모두 자동화하여, 빠른 개발과 배포가 가능하도록 구축해 두었습니다.</p>
     """, unsafe_allow_html=True)
 
-    stmd.st_mermaid("""
-    graph LR
-        A["👨‍💻 개발자<br/>main 브랜치 푸시"] --> B["🔄 Github Actions<br/>빌드 & 체크아웃"]
-        B --> C["🔐 GCP 서버<br/>코드 동기화"]
-        C --> D["🐳 Docker 재빌드<br/>배포 완료"]
-    """, pan=False, zoom=False, show_controls=False)
-
-    st.markdown("""
-    **CI/CD 파이프라인 단계**:
-
-    | 단계 | 작업 내용 | 소요 시간 |
-    |------|-----------|-----------|
-    | **1. Trigger** | main 브랜치 push 감지 | 즉시 |
-    | **2. Checkout** | 최신 소스 코드 가져오기 | ~30초 |
-    | **3. SSH Connect** | GCP 서버 원격 접속 | ~10초 |
-    | **4. Code Update** | git pull로 코드 동기화 | ~20초 |
-    | **5. Container Rebuild** | docker-compose 재빌드 | ~2-3분 |
-    | **6. Health Check** | 서비스 정상 동작 확인 | ~30초 |
-    """, unsafe_allow_html=True)
+    # 컬럼을 사용해서 가운데 정렬
+    col1, col2, col3 = st.columns([1, 3, 1])
+    with col2:
+        stmd.st_mermaid("""
+        graph LR
+            A["👨‍💻 개발자<br/>main 브랜치 푸시"] --> B["🔄 Github Actions<br/>빌드 & 체크아웃"]
+            B --> C["🔐 GCP 서버<br/>코드 동기화"]
+            C --> D["🐳 Docker 재빌드<br/>배포 완료"]
+        """, pan=False, zoom=False, show_controls=False)
