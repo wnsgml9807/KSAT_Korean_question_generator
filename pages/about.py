@@ -115,9 +115,8 @@ with col2:
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
         if st.button("🚀 KSAT Agent 실행하기", type="primary", use_container_width=True):
-            # Query params를 사용해서 페이지 변경 신호 전달
-            st.query_params.page = "chat"
-            st.rerun()
+            # 직접 채팅 페이지로 이동
+            st.switch_page("pages/chat.py")
     
     st.html('''
     <div align="center" style="margin-top: 10px;">
